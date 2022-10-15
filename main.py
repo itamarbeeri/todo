@@ -12,6 +12,7 @@ colorama.init(autoreset=True)
 exp = True
 hide_done = True
 task_pointer = None
+indent = '    '
 
 class Task:
     def __init__(self, name, isDone=False, color=Fore.WHITE, expendItems=True, display=True):
@@ -43,14 +44,17 @@ class Task:
             item.set_display_done(val)
 
     def print(self, start=None):
+        global indent
         if self.display is True:
             bg_color = Back.LIGHTGREEN_EX if self.isDone is True else Back.BLACK
             start = '' if start is None else str(start)
             end = '' if self.expendItems is True else ' ...'
             print(f"{bg_color}{self.color}{start} {self.name}{end}")
+
             if self.expendItems is True:
                 for i, item in enumerate(self.itemList):
-                    item.print(start='     ' + str(i) + '.')
+                    sub_start = ''.join([' ' for _ in range(start.count(' '))]) + indent + str(i) + '.'
+                    item.print(start=sub_start)
 
 
 def sprint(text):
@@ -167,7 +171,11 @@ def execute_command(Tasks, task_num, subtask_num, opcode, data):
         isUpdate = True
 
     elif opcode == 'a':
-        Tasks[task_num].addItem(data)
+        if subtask_num is None:
+            Tasks[task_num].addItem(data)
+        else:
+            Tasks[task_num].itemList[subtask_num].addItem(data)
+
         isUpdate = True
 
     elif opcode == 'w' or opcode == 's':
