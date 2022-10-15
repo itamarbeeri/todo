@@ -10,7 +10,7 @@ colorama.init(autoreset=True)
 
 
 class Task:
-    def __init__(self, name, isDone=False, color=Fore.YELLOW, expendItems=False):
+    def __init__(self, name, isDone=False, color=Fore.WHITE, expendItems=True):
         self.name = name
         self.isDone = isDone
         self.color = color
@@ -127,6 +127,7 @@ def execute_command(Tasks, task_num, subtask_num, opcode, data):
         isUpdate = True
 
     elif opcode == 'w' or opcode == 's':
+        # TODO: deal with sub tasks
         direction = - 1 if opcode == 'w' else 1
         if 0 <= task_num + direction < len(Tasks):
             temp = Tasks[task_num]
@@ -143,6 +144,8 @@ def execute_command(Tasks, task_num, subtask_num, opcode, data):
             color = Fore.LIGHTMAGENTA_EX
         elif data.startswith('c'):
             color = Fore.CYAN
+        elif data.startswith('w'):
+            color = Fore.WHITE
         else:
             color = Fore.YELLOW
 
@@ -153,8 +156,11 @@ def execute_command(Tasks, task_num, subtask_num, opcode, data):
         isUpdate = True
 
     else:
-        sprint(f"{opcode} is an invalid operation. try 'help''")
-        isUpdate = False
+        if subtask_num is None:
+            Tasks[task_num].name = data
+        else:
+            Tasks[task_num].itemList[subtask_num].name = data
+        isUpdate = True
 
     return isUpdate
 
