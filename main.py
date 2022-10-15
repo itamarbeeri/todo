@@ -27,7 +27,7 @@ class Task:
         self.color = color
 
     def print(self, start=None):
-        bg_color = Back.GREEN if self.isDone is True else Back.BLACK
+        bg_color = Back.LIGHTGREEN_EX if self.isDone is True else Back.BLACK
         start = '' if start is None else str(start)
         print(f"{bg_color}{self.color}{start} {self.name}")
         if self.expendItems is True:
@@ -47,7 +47,7 @@ def print_instructions():
     sprint('Edit a task - type the task number followed by command')
     sprint('  d (to toggle Done/UnDone)')
     sprint('  e (to toggle sub items expantion display)')
-    sprint('  c (change task color) followed by color to change color - c ,b ,r ,m for cyan, blue, red and magenta.')
+    sprint('  c (change task color) followed by color to change color - c ,b ,r ,m, w ,g for cyan, blue...')
     sprint('  a (add sub task) followed by sub task name')
     sprint('  del to delete task.')
     sprint("Example: '6 c m' -> color task 6 in magenta. '2 d' toggle task 2 done status")
@@ -146,6 +146,8 @@ def execute_command(Tasks, task_num, subtask_num, opcode, data):
             color = Fore.CYAN
         elif data.startswith('w'):
             color = Fore.WHITE
+        elif data.startswith('g'):
+            color = Fore.GREEN
         else:
             color = Fore.YELLOW
 
