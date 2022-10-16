@@ -4,7 +4,7 @@ import pickle
 from os import path
 
 import colorama
-from colorama import Fore, Back
+from colorama import Fore, Back, Style
 
 colorama.init(autoreset=True)
 
@@ -14,10 +14,11 @@ task_pointer_list = []
 indent = '    '
 
 class Task:
-    def __init__(self, name, isDone=False, color=Fore.WHITE, expendItems=True, display=True):
+    def __init__(self, name, isDone=False, color=Fore.WHITE, backgroung=Back.BLACK, expendItems=True, display=True):
         self.name = name
         self.isDone = isDone
         self.color = color
+        self.backgroung = backgroung
         self.itemList = []
         self.expendItems = expendItems
         self.display = display
@@ -30,6 +31,7 @@ class Task:
             if self.color == item.color:
                 item.color = color
         self.color = color
+
 
     def set_expension(self, val):
         self.expendItems = val
@@ -45,7 +47,7 @@ class Task:
     def print(self, start=None):
         global indent
         if self.display is True:
-            bg_color = Back.LIGHTGREEN_EX if self.isDone is True else Back.BLACK
+            bg_color = Back.LIGHTGREEN_EX if self.isDone is True else self.backgroung
             start = '' if start is None else str(start)
             end = '' if self.expendItems is True else ' ...'
             print(f"{bg_color}{self.color}{start} {self.name}{end}")
@@ -65,11 +67,12 @@ def print_instructions():
     sprint('..')
 
     sprint('Create a new task - type the task name.')
-    sprint('expand/collapse all press x')
+    sprint('expand/collapse all press e')
     sprint('hide/display all done tasks press d')
     sprint('Edit a task - type the task number followed by command')
     sprint('  d (to toggle Done/UnDone)')
     sprint('  e (to toggle sub items expantion display)')
+    sprint('  h (to toggle highlight on a task')
     sprint('  c (change task color) followed by color to change color - c ,b ,r ,m, w ,g for cyan, blue...')
     sprint('  a (add sub task) followed by sub task name')
     sprint('  del to delete task.')
@@ -89,8 +92,21 @@ def display_tasks(Tasks):
         task.print(start=' ' + str(i) + '.')
 
 
-def swap_tasks(Tasks, task_pointer_list, dir):
-    pass
+def swap_tasks(Tasks, task_pointer_list, direction):
+    pointer = task_pointer_list[-1]
+    if len(task_pointer_list) == 1:
+        if 0 <= pointer + direction < len(Tasks):
+            temp = Tasks[pointer]
+            Tasks[pointer] = Tasks[pointer + direction]
+            Tasks[pointer + direction] = temp
+    else:
+        if 0 <= pointer + direction < len(Tasks):
+            parent_task = get_task(Tasks, task_pointer_list[:-1])
+            temp = parent_task.itemList[pointer]
+            parent_task.itemList[pointer] = parent_task.itemList[pointer + direction]
+            parent_task.itemList[pointer + direction] = temp
+    task_pointer_list[-1] = pointer + direction
+    return task_pointer_list
 
 def load_tasks(taskfile):
     if not path.isfile(taskfile):
@@ -114,7 +130,7 @@ def parse_command(cmd, Tasks):
         print_instructions()
         isUpdate = False
 
-    elif cmd == 'x':
+    elif cmd == 'e':
         exp = not exp
         for task in Tasks:
             task.set_expension(exp)
@@ -138,6 +154,7 @@ def parse_command(cmd, Tasks):
     else:
         cmd_list = cmd.split(' ')
         cmd_offset = 0
+        task_pointer_list = []
         while cmd_list[cmd_offset].isnumeric():
             task_pointer_list.append(int(cmd_list[cmd_offset]))
             cmd_offset += 1
@@ -163,7 +180,12 @@ def parse_command(cmd, Tasks):
 def execute_command(Tasks, task_pointer_list, task, opcode, data):
 
     if opcode == 'del':
-        del task
+        pointer = task_pointer_list[-1]
+        if len(task_pointer_list) == 1:
+            del Tasks[pointer]
+        else:
+            parent_task = get_task(Tasks, task_pointer_list[:-1])
+            del parent_task.itemList[pointer]
         isUpdate = True
 
     elif opcode == 'd':
@@ -176,6 +198,13 @@ def execute_command(Tasks, task_pointer_list, task, opcode, data):
 
     elif opcode == 'a':
         task.addItem(data)
+        isUpdate = True
+
+    elif opcode == 'h':
+        if task.backgroung == Back.BLACK:
+            task.backgroung = Back.YELLOW + Style.DIM
+        else:
+            task.backgroung = Back.BLACK
         isUpdate = True
 
     elif opcode == 'w' or opcode == 's':
@@ -192,15 +221,16 @@ def execute_command(Tasks, task_pointer_list, task, opcode, data):
             color = Fore.LIGHTMAGENTA_EX
         elif data.startswith('c'):
             color = Fore.CYAN
-        elif data.startswith('w'):
-            color = Fore.WHITE
+        elif data.startswith('y'):
+            color = Fore.YELLOW
         elif data.startswith('g'):
             color = Fore.GREEN
         else:
-            color = Fore.YELLOW
+            color = Fore.WHITE
 
         task.setColor(color)
         isUpdate = True
+
 
     else:
         task.name = ' '.join([opcode, data])
