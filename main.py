@@ -12,14 +12,18 @@ exp = True
 hide_done = True
 task_pointer_list = []
 indent = '    '
+highlight_only_flag = False
+
 
 class Task:
-    def __init__(self, name, isDone=False, color=Fore.WHITE, backgroung=Back.BLACK, expendItems=True, display=True):
+    def __init__(self, name, isDone=False, isHighlighted=False, color=Fore.WHITE, backgroung=Back.BLACK,
+                 expendItems=True, display=True):
         self.name = name
         self.isDone = isDone
+        self.isHighlighted = isHighlighted
+        self.itemList = []
         self.color = color
         self.backgroung = backgroung
-        self.itemList = []
         self.expendItems = expendItems
         self.display = display
 
@@ -31,7 +35,6 @@ class Task:
             if self.color == item.color:
                 item.color = color
         self.color = color
-
 
     def set_expension(self, val):
         self.expendItems = val
@@ -47,10 +50,16 @@ class Task:
     def print(self, start=None):
         global indent
         if self.display is True:
-            bg_color = Back.LIGHTGREEN_EX if self.isDone is True else self.backgroung
+            fg_color = Fore.BLACK if self.isHighlighted is True else self.color
+            bg_color = Back.LIGHTGREEN_EX if self.isDone is True else Back.YELLOW + Style.DIM if self.isHighlighted is True else self.backgroung
             start = '' if start is None else str(start)
             end = '' if self.expendItems is True else ' ...'
-            print(f"{bg_color}{self.color}{start} {self.name}{end}")
+            if highlight_only_flag is True:
+                if self.isHighlighted is True:
+                    bg_color = Back.LIGHTGREEN_EX if self.isDone is True else self.backgroung
+                    print(f"{bg_color}{self.color} {self.name}")
+            else:
+                print(f"{bg_color}{fg_color}{start} {self.name}{end}")
 
             if self.expendItems is True:
                 for i, item in enumerate(self.itemList):
@@ -73,7 +82,7 @@ def print_instructions():
     sprint('  d (to toggle Done/UnDone)')
     sprint('  e (to toggle sub items expantion display)')
     sprint('  h (to toggle highlight on a task')
-    sprint('  c (change task color) followed by color to change color - c ,b ,r ,m, w ,g for cyan, blue...')
+    sprint('  c (change task color) followed by color to change color - r, g, b, c ,m, y, k, w for cyan, blue...')
     sprint('  a (add sub task) followed by sub task name')
     sprint('  del to delete task.')
     sprint("Example: '6 c m' -> color task 6 in magenta. '2 d' toggle task 2 done status")
@@ -81,11 +90,13 @@ def print_instructions():
     sprint('..')
     sprint('Good luck!')
 
+
 def get_task(Tasks, task_pointer_list):
     task = Tasks[task_pointer_list[0]]
     for num in task_pointer_list[1:]:
         task = task.itemList[num]
     return task
+
 
 def display_tasks(Tasks):
     for i, task in enumerate(Tasks):
@@ -108,6 +119,7 @@ def swap_tasks(Tasks, task_pointer_list, direction):
     task_pointer_list[-1] = pointer + direction
     return task_pointer_list
 
+
 def load_tasks(taskfile):
     if not path.isfile(taskfile):
         return []
@@ -122,9 +134,8 @@ def save_tasks(taskfile, Tasks):
 
 
 def parse_command(cmd, Tasks):
-    global exp, hide_done, task_pointer_list
+    global exp, hide_done, task_pointer_list, highlight_only_flag
     cmd = cmd.lower()
-    # TODO: fix sub tasks colors
 
     if cmd == 'help':
         print_instructions()
@@ -140,6 +151,10 @@ def parse_command(cmd, Tasks):
         hide_done = not hide_done
         for task in Tasks:
             task.set_display_done(hide_done)
+        isUpdate = True
+
+    elif cmd == 'h':
+        highlight_only_flag = not highlight_only_flag
         isUpdate = True
 
     elif cmd == 'w' or cmd == 's':
@@ -178,7 +193,6 @@ def parse_command(cmd, Tasks):
 
 
 def execute_command(Tasks, task_pointer_list, task, opcode, data):
-
     if opcode == 'del':
         pointer = task_pointer_list[-1]
         if len(task_pointer_list) == 1:
@@ -201,10 +215,7 @@ def execute_command(Tasks, task_pointer_list, task, opcode, data):
         isUpdate = True
 
     elif opcode == 'h':
-        if task.backgroung == Back.BLACK:
-            task.backgroung = Back.YELLOW + Style.DIM
-        else:
-            task.backgroung = Back.BLACK
+        task.isHighlighted = not task.isHighlighted
         isUpdate = True
 
     elif opcode == 'w' or opcode == 's':
@@ -225,6 +236,10 @@ def execute_command(Tasks, task_pointer_list, task, opcode, data):
             color = Fore.YELLOW
         elif data.startswith('g'):
             color = Fore.GREEN
+        elif data.startswith('w'):
+            color = Fore.WHITE
+        elif data.startswith('k'):
+            color = Fore.BLACK
         else:
             color = Fore.WHITE
 
