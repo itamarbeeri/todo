@@ -9,66 +9,9 @@ from colorama import Fore, Back, Style
 colorama.init(autoreset=True)
 
 exp = True
-hide_done = True
 task_pointer_list = []
 indent = '    '
-highlight_only_flag = False
-
-
-class Task:
-    def __init__(self, name, isDone=False, isHighlighted=False, color=Fore.WHITE, backgroung=Back.BLACK,
-                 expendItems=True, display=True):
-        self.name = name
-        self.isDone = isDone
-        self.isHighlighted = isHighlighted
-        self.itemList = []
-        self.color = color
-        self.backgroung = backgroung
-        self.expendItems = expendItems
-        self.display = display
-
-    def addItem(self, name):
-        self.itemList.append(Task(name, color=self.color))
-
-    def setColor(self, color):
-        for item in self.itemList:
-            if self.color == item.color:
-                item.color = color
-        self.color = color
-
-    def set_expension(self, val):
-        self.expendItems = val
-        for item in self.itemList:
-            item.set_expension(val)
-
-    def set_display_done(self, val):
-        if self.isDone is True:
-            self.display = val
-        for item in self.itemList:
-            item.set_display_done(val)
-
-    def print(self, start=None):
-        global indent
-        if self.display is True:
-            fg_color = Fore.BLACK if self.isHighlighted is True else self.color
-            bg_color = Back.LIGHTGREEN_EX if self.isDone is True\
-                else Back.YELLOW + Style.DIM if self.isHighlighted is True\
-                else self.backgroung
-
-            start = '' if start is None else str(start)
-            end = '' if self.expendItems is True else ' ...'
-            if highlight_only_flag is True:
-                if self.isHighlighted is True:
-                    bg_color = Back.LIGHTGREEN_EX if self.isDone is True else self.backgroung
-                    print(f"{bg_color}{self.color} {self.name}")
-            else:
-                print(f"{bg_color}{fg_color}{start} {self.name}{end}")
-
-            if self.expendItems is True:
-                for i, item in enumerate(self.itemList):
-                    sub_start = ''.join([' ' for _ in range(start.count(' '))]) + indent + str(i) + '.'
-                    item.print(start=sub_start)
-
+hide_done = False
 
 def sprint(text):
     print(f"{Fore.LIGHTRED_EX}{text}")
@@ -94,6 +37,72 @@ def print_instructions():
 
     sprint('..')
     sprint('Good luck!')
+
+
+class Task:
+    def __init__(self, name, status='', color=Fore.WHITE, expendItems=True, display=True):
+        self.name = name
+        self.status = status
+        self.itemList = []
+        self.color = color
+        self.expendItems = expendItems
+        self.display = display
+
+    def get_colors(self):
+        if self.status == "done":
+            bg_color = Back.LIGHTGREEN_EX
+            fg_color = Fore.BLACK
+
+        elif self.status == "taken_care_of":
+            bg_color = Back.LIGHTMAGENTA_EX
+            fg_color = Fore.BLACK
+
+        elif self.status == "priority":
+            bg_color = Back.YELLOW + Style.DIM
+            fg_color = Fore.BLACK
+
+        elif self.status == "irrelevant":
+            bg_color = Back.LIGHTRED_EX
+            fg_color = Fore.WHITE
+
+        else:
+            bg_color = Back.BLACK
+            fg_color = self.color
+
+        return fg_color, bg_color
+
+    def add_item(self, name):
+        self.itemList.append(Task(name, color=self.color))
+
+    def set_color(self, color):
+        for item in self.itemList:
+            if self.color == item.color:
+                item.color = color
+        self.color = color
+
+    def set_expension(self, val):
+        self.expendItems = val
+        for item in self.itemList:
+            item.set_expension(val)
+
+    def change_display_status(self, status, val):
+        if self.status == status:
+            self.display = val
+        for item in self.itemList:
+            item.change_display_status(val)
+
+    def print(self, start=None):
+        global indent
+        fg_color, bg_color = self.set_colors()
+        if self.display is True:
+            start = '' if start is None else str(start)
+            end = '' if self.expendItems is True else ' ...'
+            print(f"{bg_color}{fg_color}{start} {self.name}{end}")
+
+            if self.expendItems is True:
+                for i, item in enumerate(self.itemList):
+                    sub_start = ''.join([' ' for _ in range(start.count(' '))]) + indent + str(i) + '.'
+                    item.print(start=sub_start)
 
 
 def get_task(Tasks, task_pointer_list):
@@ -155,7 +164,7 @@ def parse_command(cmd, Tasks):
     elif cmd == 'd':
         hide_done = not hide_done
         for task in Tasks:
-            task.set_display_done(hide_done)
+            task.change_display_status('done', hide_done)
         isUpdate = True
 
     elif cmd == 'h':
@@ -216,7 +225,7 @@ def execute_command(Tasks, task_pointer_list, task, opcode, data):
         isUpdate = True
 
     elif opcode == 'a':
-        task.addItem(data)
+        task.add_item(data)
         isUpdate = True
 
     elif opcode == 'h':
@@ -257,7 +266,7 @@ def execute_command(Tasks, task_pointer_list, task, opcode, data):
         else:
             color = Fore.WHITE
 
-        task.setColor(color)
+        task.set_color(color)
         isUpdate = True
 
 
