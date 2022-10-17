@@ -51,7 +51,10 @@ class Task:
         global indent
         if self.display is True:
             fg_color = Fore.BLACK if self.isHighlighted is True else self.color
-            bg_color = Back.LIGHTGREEN_EX if self.isDone is True else Back.YELLOW + Style.DIM if self.isHighlighted is True else self.backgroung
+            bg_color = Back.LIGHTGREEN_EX if self.isDone is True\
+                else Back.YELLOW + Style.DIM if self.isHighlighted is True\
+                else self.backgroung
+
             start = '' if start is None else str(start)
             end = '' if self.expendItems is True else ' ...'
             if highlight_only_flag is True:
@@ -84,6 +87,8 @@ def print_instructions():
     sprint('  h (to toggle highlight on a task')
     sprint('  c (change task color) followed by color to change color - r, g, b, c ,m, y, k, w for cyan, blue...')
     sprint('  a (add sub task) followed by sub task name')
+    sprint('  g to toggle a marker')
+    sprint('  f to toggle red mark and hide')
     sprint('  del to delete task.')
     sprint("Example: '6 c m' -> color task 6 in magenta. '2 d' toggle task 2 done status")
 
@@ -216,6 +221,15 @@ def execute_command(Tasks, task_pointer_list, task, opcode, data):
 
     elif opcode == 'h':
         task.isHighlighted = not task.isHighlighted
+        isUpdate = True
+
+    elif opcode == 'g':
+        task.backgroung = Back.LIGHTMAGENTA_EX + Style.DIM if task.backgroung == Back.BLACK else Back.BLACK
+        isUpdate = True
+
+    elif opcode == 'f':
+        task.backgroung = Back.LIGHTRED_EX + Style.DIM if task.backgroung == Back.BLACK else Back.BLACK
+        task.display = False
         isUpdate = True
 
     elif opcode == 'w' or opcode == 's':
