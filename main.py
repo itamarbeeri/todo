@@ -20,56 +20,38 @@ def sprint(text):
 def print_instructions():
     sprint('Welcome to TODO list.')
     sprint('..')
-
-    sprint('Create a new task - type the task name.')
-    sprint('expand/collapse all press e')
-    sprint('hide/display all done tasks press d')
+    sprint('To create a new task - type the task name.')
+    sprint('e to expand/collapse all')
+    sprint('d to hide/display all done tasks')
+    sprint('f to hide/display all irrelevant tasks')
+    sprint('g to hide/display all taken_care_of tasks')
+    sprint('h to hide/display all highligthed tasks')
+    sprint('hh to mark/unmark all highligthed tasks')
+    sprint("Example: 'd' -> display/dont display done tasks.")
+    sprint('')
     sprint('Edit a task - type the task number followed by command')
-    sprint('  d (to toggle Done/UnDone)')
-    sprint('  e (to toggle sub items expantion display)')
-    sprint('  h (to toggle highlight on a task')
-    sprint('  c (change task color) followed by color to change color - r, g, b, c ,m, y, k, w for cyan, blue...')
-    sprint('  a (add sub task) followed by sub task name')
-    sprint('  g to toggle a marker')
-    sprint('  f to toggle red mark and hide')
-    sprint('  del to delete task.')
-    sprint("Example: '6 c m' -> color task 6 in magenta. '2 d' toggle task 2 done status")
-
+    sprint(' # d (to toggle Done/UnDone)')
+    sprint(' # e (to toggle sub items expantion display)')
+    sprint(' # h (to toggle highlight on a task')
+    sprint(' # c (change task color) followed by color to change color - r, g, b, c ,m, y, k, w for cyan, blue...')
+    sprint(' # a (add sub task) followed by sub task name')
+    sprint(' # g to toggle a marker')
+    sprint(' # f to toggle red mark and hide')
+    sprint(' # w/s to move task up or down.')
+    sprint(' # del to delete task.')
+    sprint("Example: '6 2 c m' -> color subtask 2 in task 6 in magenta.")
     sprint('..')
-    sprint('Good luck!')
+    sprint('Good luck! press enter to continue.')
+    input()
 
 
 class Task:
-    def __init__(self, name, status='', color=Fore.WHITE, expendItems=True, display=True):
+    def __init__(self, name, color=Fore.WHITE, expendItems=True, display=True):
         self.name = name
-        self.status = status
+        self.status = {'done': False, 'taken_care_of': False, 'priority': False, 'irrelevant': False}
         self.itemList = []
         self.color = color
         self.expendItems = expendItems
-        self.display = display
-
-    def get_colors(self):
-        if self.status == "done":
-            bg_color = Back.LIGHTGREEN_EX
-            fg_color = Fore.BLACK
-
-        elif self.status == "taken_care_of":
-            bg_color = Back.LIGHTMAGENTA_EX
-            fg_color = Fore.BLACK
-
-        elif self.status == "priority":
-            bg_color = Back.YELLOW + Style.DIM
-            fg_color = Fore.BLACK
-
-        elif self.status == "irrelevant":
-            bg_color = Back.LIGHTRED_EX
-            fg_color = Fore.WHITE
-
-        else:
-            bg_color = Back.BLACK
-            fg_color = self.color
-
-        return fg_color, bg_color
 
     def add_item(self, name):
         self.itemList.append(Task(name, color=self.color))
@@ -91,10 +73,48 @@ class Task:
         for item in self.itemList:
             item.change_display_status(val)
 
-    def print(self, start=None):
+    def get_display_params(self, State):
+        if State['priority_only'] is True and self.status['priority'] is False:
+            visible = False
+        elif self.status['done'] is True and State['display_done'] is False:
+            visible = False
+        elif self.status['taken_care_of'] is True and State['display_taken_care_of'] is False:
+            visible = False
+        elif self.status['irrelevant'] is True and State['display_irrelevant'] is False:
+            visible = False
+        else:
+            visible = True
+
+        if self.status["done"] is True:
+            bg_color = Back.GREEN
+            fg_color = Fore.BLACK + Style.BRIGHT
+
+        elif self.status["taken_care_of"] is True:
+            bg_color = Back.YELLOW
+            fg_color = Fore.BLACK + Style.NORMAL
+
+        elif self.status["irrelevant"] is True:
+            bg_color = Back.LIGHTRED_EX
+            fg_color = Fore.WHITE
+
+        elif self.status["priority"] is True:
+            if State["mark_priority"] is True:
+                bg_color = Back.LIGHTMAGENTA_EX
+                fg_color = Fore.BLACK + Style.NORMAL
+            else:
+                bg_color = Back.BLACK
+                fg_color = self.color
+
+        else:
+            bg_color = Back.BLACK
+            fg_color = self.color
+
+        return fg_color, bg_color, visible
+
+    def print(self, State, start=None):
         global indent
-        fg_color, bg_color = self.set_colors()
-        if self.display is True:
+        fg_color, bg_color, visible = self.get_display_params(State)
+        if visible is True:
             start = '' if start is None else str(start)
             end = '' if self.expendItems is True else ' ...'
             print(f"{bg_color}{fg_color}{start} {self.name}{end}")
@@ -102,7 +122,7 @@ class Task:
             if self.expendItems is True:
                 for i, item in enumerate(self.itemList):
                     sub_start = ''.join([' ' for _ in range(start.count(' '))]) + indent + str(i) + '.'
-                    item.print(start=sub_start)
+                    item.print(State, start=sub_start)
 
 
 def get_task(Tasks, task_pointer_list):
@@ -112,9 +132,9 @@ def get_task(Tasks, task_pointer_list):
     return task
 
 
-def display_tasks(Tasks):
+def display_tasks(State, Tasks):
     for i, task in enumerate(Tasks):
-        task.print(start=' ' + str(i) + '.')
+        task.print(State, start=' ' + str(i) + '.')
 
 
 def swap_tasks(Tasks, task_pointer_list, direction):
@@ -134,51 +154,60 @@ def swap_tasks(Tasks, task_pointer_list, direction):
     return task_pointer_list
 
 
-def load_tasks(taskfile):
+def load_data(taskfile):
     if not path.isfile(taskfile):
-        return []
+        State = {"display_done": True, "display_taken_care_of": True, "mark_priority": True, "priority_only": False,
+                 "display_irrelevant": True, 'expand_all': True}
+        return [State, []]
+
     with open(taskfile, "rb") as fp:
-        Tasks = pickle.load(fp)
-    return Tasks
+        data = pickle.load(fp)
+        State = data[0]
+        Tasks = data[1]
+
+    return State, Tasks
 
 
-def save_tasks(taskfile, Tasks):
+def save_data(taskfile, State, Tasks):
+    data = [State, Tasks]
     with open(taskfile, "wb") as fp:
-        pickle.dump(Tasks, fp)
+        pickle.dump(data, fp)
 
 
-def parse_command(cmd, Tasks):
+def parse_command(cmd, State, Tasks):
     global exp, hide_done, task_pointer_list, highlight_only_flag
     cmd = cmd.lower()
+    isUpdate = True
 
     if cmd == 'help':
         print_instructions()
-        isUpdate = False
-
-    elif cmd == 'e':
-        exp = not exp
-        for task in Tasks:
-            task.set_expension(exp)
-        isUpdate = True
 
     elif cmd == 'd':
-        hide_done = not hide_done
-        for task in Tasks:
-            task.change_display_status('done', hide_done)
-        isUpdate = True
+        State['display_done'] = not State['display_done']
+
+    elif cmd == 'f':
+        State['display_irrelevant'] = not State['display_irrelevant']
+
+    elif cmd == 'g':
+        State['display_taken_care_of'] = not State['display_taken_care_of']
 
     elif cmd == 'h':
-        highlight_only_flag = not highlight_only_flag
-        isUpdate = True
+        State['priority_only'] = not State['priority_only']
+
+    elif cmd == 'hh':
+        State['mark_priority'] = not State['mark_priority']
+
+    elif cmd == 'e':
+        State['expand_all'] = not State['expand_all']
+        for task in Tasks:
+            task.set_expension(State['expand_all'])
 
     elif cmd == 'w' or cmd == 's':
         direction = - 1 if cmd == 'w' else 1
         task_pointer_list = swap_tasks(Tasks, task_pointer_list, direction)
-        isUpdate = True
 
     elif not cmd[0].isnumeric():
         Tasks.append(Task(cmd))
-        isUpdate = True
 
     else:
         cmd_list = cmd.split(' ')
@@ -199,7 +228,7 @@ def parse_command(cmd, Tasks):
 
         else:
             try:
-                isUpdate = execute_command(Tasks, task_pointer_list, task, opcode, data)
+                execute_command(Tasks, task_pointer_list, task, opcode, data)
             except:
                 sprint(f"ERROR! cant execute command.")
                 isUpdate = False
@@ -214,37 +243,28 @@ def execute_command(Tasks, task_pointer_list, task, opcode, data):
         else:
             parent_task = get_task(Tasks, task_pointer_list[:-1])
             del parent_task.itemList[pointer]
-        isUpdate = True
 
     elif opcode == 'd':
-        task.isDone = not task.isDone
-        isUpdate = True
+        task.status['done'] = not task.status['done']
 
     elif opcode == 'e':
         task.expendItems = not task.expendItems
-        isUpdate = True
 
     elif opcode == 'a':
         task.add_item(data)
-        isUpdate = True
 
     elif opcode == 'h':
-        task.isHighlighted = not task.isHighlighted
-        isUpdate = True
+        task.status['priority'] = not task.status['priority']
 
     elif opcode == 'g':
-        task.backgroung = Back.LIGHTMAGENTA_EX + Style.DIM if task.backgroung == Back.BLACK else Back.BLACK
-        isUpdate = True
+        task.status['taken_care_of'] = not task.status['taken_care_of']
 
     elif opcode == 'f':
-        task.backgroung = Back.LIGHTRED_EX + Style.DIM if task.backgroung == Back.BLACK else Back.BLACK
-        task.display = False
-        isUpdate = True
+        task.status['irrelevant'] = not task.status['irrelevant']
 
     elif opcode == 'w' or opcode == 's':
         direction = - 1 if opcode == 'w' else 1
         task_pointer_list = swap_tasks(Tasks, task_pointer_list, direction)
-        isUpdate = True
 
     elif opcode == 'c':
         if data.startswith('b'):
@@ -267,27 +287,22 @@ def execute_command(Tasks, task_pointer_list, task, opcode, data):
             color = Fore.WHITE
 
         task.set_color(color)
-        isUpdate = True
-
 
     else:
         task.name = ' '.join([opcode, data])
-        isUpdate = True
-
-    return isUpdate
 
 
 def main():
     taskfile = "taskfile"
-    Tasks = load_tasks(taskfile)
+    State, Tasks = load_data(taskfile)
     sprint('welcome to TODO list:')
-    display_tasks(Tasks)
+    display_tasks(State, Tasks)
 
     while True:
         cmd = input()
-        if parse_command(cmd, Tasks):
-            display_tasks(Tasks)
-        save_tasks(taskfile, Tasks)
+        if parse_command(cmd, State, Tasks):
+            display_tasks(State, Tasks)
+        save_data(taskfile, State, Tasks)
 
 
 if __name__ == '__main__':
