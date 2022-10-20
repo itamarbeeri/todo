@@ -5,6 +5,7 @@ from os import path
 
 import colorama
 from colorama import Fore, Back, Style
+from datetime import date
 
 colorama.init(autoreset=True)
 
@@ -52,6 +53,9 @@ class Task:
         self.itemList = []
         self.color = color
         self.expendItems = expendItems
+        self.creation_date = date.today()
+        self.done_date = None
+
 
     def add_item(self, name):
         self.itemList.append(Task(name, color=self.color))
@@ -62,16 +66,17 @@ class Task:
                 item.color = color
         self.color = color
 
+    def done_tasks(self):
+        done_counter = 0
+        for item in self.itemList:
+            if item.status['done'] is True:
+                done_counter += 1
+        return done_counter
+
     def set_expension(self, val):
         self.expendItems = val
         for item in self.itemList:
             item.set_expension(val)
-
-    def change_display_status(self, status, val):
-        if self.status == status:
-            self.display = val
-        for item in self.itemList:
-            item.change_display_status(val)
 
     def get_display_params(self, State):
         if State['priority_only'] is True and self.status['priority'] is False:
@@ -86,24 +91,24 @@ class Task:
             visible = True
 
         if self.status["done"] is True:
-            bg_color = Back.GREEN
-            fg_color = Fore.BLACK + Style.BRIGHT
+            bg_color = Back.BLACK
+            fg_color = Fore.GREEN + Style.BRIGHT
 
         elif self.status["taken_care_of"] is True:
-            bg_color = Back.YELLOW
-            fg_color = Fore.BLACK + Style.NORMAL
+            bg_color = Back.BLACK
+            fg_color = Fore.GREEN + Style.DIM
 
         elif self.status["irrelevant"] is True:
-            bg_color = Back.LIGHTRED_EX
-            fg_color = Fore.WHITE
+            bg_color = Back.BLACK
+            fg_color = Fore.LIGHTRED_EX + Style.BRIGHT
 
         elif self.status["priority"] is True:
             if State["mark_priority"] is True and State['priority_only'] is False:
                 bg_color = Back.BLACK
-                fg_color = self.color + Style.DIM
+                fg_color = Fore.YELLOW
             else:
                 bg_color = Back.BLACK
-                fg_color = self.color + Style.NORMAL
+                fg_color = self.color + Style.BRIGHT
 
         else:
             bg_color = Back.BLACK
@@ -114,10 +119,13 @@ class Task:
     def print(self, State, start=None):
         global indent
         fg_color, bg_color, visible = self.get_display_params(State)
+        done_tasks = '(' + str(self.done_tasks()) + '/' + str(len(self.itemList)) + ')' if len(self.itemList) > 0 else ''
+        dates = indent * 3 + str(self.creation_date) + '-' + str(self.done_date) if State['verbose'] or self.status['done'] else ''
+
         if visible is True:
             start = '' if start is None else str(start)
-            end = '' if len(self.itemList) == 0 else ' ...'
-            print(f"{bg_color}{fg_color}{start} {self.name}{end}")
+            end = f'{done_tasks} {dates}' if len(self.itemList) == 0 else f'{done_tasks} {dates} ...'
+            print(f"{bg_color}{fg_color}{start} {self.name} {end}")
 
         if self.expendItems is True:
             for i, item in enumerate(self.itemList):
@@ -136,6 +144,9 @@ def get_task(Tasks, task_pointer_list):
 
 
 def display_tasks(State, Tasks):
+    for _ in range(15):
+        print('')
+    sprint('---------------------------------------------------------------------------------------------------------')
     for i, task in enumerate(Tasks):
         task.print(State, start=' ' + str(i) + '.')
     sprint('---------------------------------------------------------------------------------------------------------')
@@ -161,7 +172,7 @@ def swap_tasks(Tasks, task_pointer_list, direction):
 def load_data(taskfile):
     if not path.isfile(taskfile):
         State = {"display_done": True, "display_taken_care_of": True, "mark_priority": True, "priority_only": False,
-                 "display_irrelevant": True, 'expand_all': True}
+                 "display_irrelevant": True, 'expand_all': True, 'verbose': False}
         return [State, []]
 
     with open(taskfile, "rb") as fp:
@@ -224,6 +235,9 @@ def execute_command_general(cmd_dict, State, Tasks):
         for task in Tasks:
             task.set_expension(State['expand_all'])
 
+    elif cmd_dict['opcode'] == 'v':
+        State['verbose'] = not State['verbose']
+
     elif cmd_dict['opcode'] == 'w' or cmd_dict['opcode'] == 's':
         direction = - 1 if cmd_dict['opcode'] == 'w' else 1
         cmd_dict['src_pointer'] = swap_tasks(Tasks, cmd_dict['src_pointer'], direction)
@@ -246,6 +260,7 @@ def execute_command_specific(cmd_dict, Tasks):
 
     elif cmd_dict['opcode'] == 'd':
         task.status['done'] = not task.status['done']
+        task.done_date = date.today()
 
     elif cmd_dict['opcode'] == 'e':
         task.expendItems = not task.expendItems
@@ -269,16 +284,16 @@ def execute_command_specific(cmd_dict, Tasks):
     elif cmd_dict['opcode'] == 'c':
         if cmd_dict['data'].startswith('b'):
             color = Fore.BLUE
-        elif cmd_dict['data'].startswith('r'):
-            color = Fore.RED
+        # elif cmd_dict['data'].startswith('r'):
+        #     color = Fore.RED
         elif cmd_dict['data'].startswith('m'):
             color = Fore.LIGHTMAGENTA_EX
         elif cmd_dict['data'].startswith('c'):
             color = Fore.CYAN
-        elif cmd_dict['data'].startswith('y'):
-            color = Fore.YELLOW
-        elif cmd_dict['data'].startswith('g'):
-            color = Fore.GREEN
+        # elif cmd_dict['data'].startswith('y'):
+        #     color = Fore.YELLOW
+        # elif cmd_dict['data'].startswith('g'):
+        #     color = Fore.GREEN
         elif cmd_dict['data'].startswith('w'):
             color = Fore.WHITE
         elif cmd_dict['data'].startswith('k'):
