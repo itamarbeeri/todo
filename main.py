@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 
 import pickle
+from datetime import date
 from os import path
 
 import colorama
 from colorama import Fore, Back, Style
-from datetime import date
 
 colorama.init(autoreset=True)
 
@@ -26,8 +26,9 @@ def print_instructions(State):
     sprint('d to hide/display all done tasks')
     sprint('f to hide/display all irrelevant tasks')
     sprint('g to hide/display all taken_care_of tasks')
-    sprint('h to hide/display all highligthed tasks')
-    sprint('hh to mark/unmark all highligthed tasks')
+    sprint('v to hide/display date log')
+    sprint('h to mark/unmark all highligthed tasks')
+    sprint('hh to hide/display all highligthed tasks')
     sprint("Example: 'd' -> display/dont display done tasks.")
     sprint('')
     sprint('Edit a task - type the task number followed by command')
@@ -39,7 +40,8 @@ def print_instructions(State):
     sprint(' # g to toggle a marker')
     sprint(' # f to toggle red mark and hide')
     sprint(' # w/s to move task up or down.')
-    sprint(' # del to delete task.')
+    sprint(' # ww/ss to move task all the way up or down.')
+    sprint(' # rm to remove task (delete).')
     sprint("Example: '6 2 c m' -> color subtask 2 in task 6 in magenta.")
     sprint('..')
     sprint('Good luck! press enter to continue.')
@@ -56,14 +58,12 @@ class Task:
         self.creation_date = date.today()
         self.done_date = None
 
-
     def add_item(self, name):
         self.itemList.append(Task(name, color=self.color))
 
     def set_color(self, color):
         for item in self.itemList:
-            if self.color == item.color:
-                item.color = color
+            item.set_color(color)
         self.color = color
 
     def done_tasks(self):
@@ -100,7 +100,7 @@ class Task:
 
         elif self.status["irrelevant"] is True:
             bg_color = Back.BLACK
-            fg_color = Fore.LIGHTRED_EX + Style.BRIGHT
+            fg_color = Fore.RED + Style.DIM
 
         elif self.status["priority"] is True:
             if State["mark_priority"] is True and State['priority_only'] is False:
@@ -119,12 +119,14 @@ class Task:
     def print(self, State, start=None):
         global indent
         fg_color, bg_color, visible = self.get_display_params(State)
-        done_tasks = '(' + str(self.done_tasks()) + '/' + str(len(self.itemList)) + ')' if len(self.itemList) > 0 else ''
-        dates = indent * 3 + str(self.creation_date) + '-' + str(self.done_date) if State['verbose'] or self.status['done'] else ''
+        done_tasks = '(' + str(self.done_tasks()) + '/' + str(len(self.itemList)) + ')' if len(
+            self.itemList) > 0 else ''
+        dates = indent * 3 + str(self.creation_date) + '-' + str(self.done_date) if State['verbose'] or self.status[
+            'done'] else ''
 
         if visible is True:
             start = '' if start is None else str(start)
-            end = f'{done_tasks} {dates}' if len(self.itemList) == 0 else f'{done_tasks} {dates} ...'
+            end = f'{done_tasks}{dates}' if len(self.itemList) == 0 else f'{done_tasks}{dates} ...'
             print(f"{bg_color}{fg_color}{start} {self.name} {end}")
 
         if self.expendItems is True:
@@ -136,20 +138,18 @@ class Task:
                 item.print(State, start=sub_start)
 
 
+def display_tasks(State, Tasks):
+    sprint('---------------------------------------------------------------------------------------------------------')
+    for i, task in enumerate(Tasks):
+        task.print(State, start=' ' + str(i) + '.')
+    sprint('---------------------------------------------------------------------------------------------------------')
+
+
 def get_task(Tasks, task_pointer_list):
     task = Tasks[task_pointer_list[0]]
     for num in task_pointer_list[1:]:
         task = task.itemList[num]
     return task
-
-
-def display_tasks(State, Tasks):
-    for _ in range(15):
-        print('')
-    sprint('---------------------------------------------------------------------------------------------------------')
-    for i, task in enumerate(Tasks):
-        task.print(State, start=' ' + str(i) + '.')
-    sprint('---------------------------------------------------------------------------------------------------------')
 
 
 def swap_tasks(Tasks, task_pointer_list, direction):
@@ -159,20 +159,21 @@ def swap_tasks(Tasks, task_pointer_list, direction):
             temp = Tasks[pointer]
             Tasks[pointer] = Tasks[pointer + direction]
             Tasks[pointer + direction] = temp
+            task_pointer_list[-1] = pointer + direction
     else:
-        if 0 <= pointer + direction < len(Tasks):
-            parent_task = get_task(Tasks, task_pointer_list[:-1])
+        parent_task = get_task(Tasks, task_pointer_list[:-1])
+        if 0 <= pointer + direction < len(parent_task.itemList):
             temp = parent_task.itemList[pointer]
             parent_task.itemList[pointer] = parent_task.itemList[pointer + direction]
             parent_task.itemList[pointer + direction] = temp
-    task_pointer_list[-1] = pointer + direction
+            task_pointer_list[-1] = pointer + direction
     return task_pointer_list
 
 
 def load_data(taskfile):
     if not path.isfile(taskfile):
         State = {"display_done": True, "display_taken_care_of": True, "mark_priority": True, "priority_only": False,
-                 "display_irrelevant": True, 'expand_all': True, 'verbose': False}
+                 "display_irrelevant": True, 'expand_all': True, 'verbose': False, 'prv_src_pointer': [0]}
         return [State, []]
 
     with open(taskfile, "rb") as fp:
@@ -201,7 +202,7 @@ def parse_command(cmd):
     if len(cmd_list) == 0:
         data = ''
     else:
-        while cmd_offset < len (cmd_list) and cmd_list[cmd_offset].isnumeric():
+        while cmd_offset < len(cmd_list) and cmd_list[cmd_offset].isnumeric():
             src_pointer.append(int(cmd_list[cmd_offset]))
             cmd_offset += 1
         data = ' '.join(cmd_list[cmd_offset:])
@@ -240,17 +241,17 @@ def execute_command_general(cmd_dict, State, Tasks):
 
     elif cmd_dict['opcode'] == 'w' or cmd_dict['opcode'] == 's':
         direction = - 1 if cmd_dict['opcode'] == 'w' else 1
-        cmd_dict['src_pointer'] = swap_tasks(Tasks, cmd_dict['src_pointer'], direction)
+        State['prv_src_pointer'] = swap_tasks(Tasks, State['prv_src_pointer'], direction)
 
     else:
         new_task = ' '.join([cmd_dict['opcode'], cmd_dict['src_pointer'], cmd_dict['data']])
         Tasks.append(Task(new_task))
 
 
-def execute_command_specific(cmd_dict, Tasks):
+def execute_command_specific(cmd_dict, State, Tasks):
     task = get_task(Tasks, cmd_dict['src_pointer'])
 
-    if cmd_dict['opcode'] == 'del':
+    if cmd_dict['opcode'] == 'rm':
         pointer = cmd_dict['src_pointer'][-1]
         if len(cmd_dict['src_pointer']) == 1:
             del Tasks[pointer]
@@ -279,21 +280,26 @@ def execute_command_specific(cmd_dict, Tasks):
 
     elif cmd_dict['opcode'] == 'w' or cmd_dict['opcode'] == 's':
         direction = - 1 if cmd_dict['opcode'] == 'w' else 1
-        cmd_dict['src_pointer'] = swap_tasks(Tasks, cmd_dict['src_pointer'], direction)
+        State['prv_src_pointer'] = swap_tasks(Tasks, cmd_dict['src_pointer'], direction)
+
+    elif cmd_dict['opcode'] == 'ww' or cmd_dict['opcode'] == 'ss':
+        pointer = cmd_dict['src_pointer'][-1]
+        if len(cmd_dict['src_pointer']) == 1:
+            length = len(Tasks)
+        else:
+            parent_task = get_task(Tasks, cmd_dict['src_pointer'][:-1])
+            length = len(parent_task.itemList)
+
+        direction = - pointer if cmd_dict['opcode'] == 'ww' else length - pointer - 1
+        State['prv_src_pointer'] = swap_tasks(Tasks, cmd_dict['src_pointer'], direction)
 
     elif cmd_dict['opcode'] == 'c':
         if cmd_dict['data'].startswith('b'):
             color = Fore.BLUE
-        # elif cmd_dict['data'].startswith('r'):
-        #     color = Fore.RED
         elif cmd_dict['data'].startswith('m'):
             color = Fore.LIGHTMAGENTA_EX
         elif cmd_dict['data'].startswith('c'):
             color = Fore.CYAN
-        # elif cmd_dict['data'].startswith('y'):
-        #     color = Fore.YELLOW
-        # elif cmd_dict['data'].startswith('g'):
-        #     color = Fore.GREEN
         elif cmd_dict['data'].startswith('w'):
             color = Fore.WHITE
         elif cmd_dict['data'].startswith('k'):
@@ -310,17 +316,24 @@ def execute_command_specific(cmd_dict, Tasks):
 def main():
     taskfile = "taskfile"
     State, Tasks = load_data(taskfile)
+    State['prv_src_pointer'] = [0]
     sprint('welcome to TODO list:')
     display_tasks(State, Tasks)
 
     while True:
         cmd = input()
         cmd_dict = parse_command(cmd)
-
         if len(cmd_dict['src_pointer']) == 0:
             execute_command_general(cmd_dict, State, Tasks)
         else:
-            execute_command_specific(cmd_dict, Tasks)
+            execute_command_specific(cmd_dict, State, Tasks)
+        # try:
+        #     if len(cmd_dict['src_pointer']) == 0:
+        #         execute_command_general(cmd_dict, State, Tasks)
+        #     else:
+        #         execute_command_specific(cmd_dict, State, Tasks)
+        # except:
+        #     sprint(f'failed in executing commad {cmd_dict}')
 
         display_tasks(State, Tasks)
         save_data(taskfile, State, Tasks)
