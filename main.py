@@ -108,6 +108,7 @@ class Task:
 
         task_status = '' if len(self.itemList) == 0 else f'({status["done"]}/{len(self.itemList)})'
         expand_sign = ' ...' if len(self.itemList) > 0 and self.expendItems is False else ''
+        expand_sign = '' if len(self.itemList) == 0 else " ..." if self.expendItems is False else ':'
         dates = str(self.creation_date) + '-' + str(self.done_date)
 
         end = task_status + expand_sign
