@@ -41,7 +41,7 @@ def print_instructions(State):
     sprint(' # f to toggle red mark and hide')
     sprint(' # w/s to move task up or down.')
     sprint(' # ww/ss to move task all the way up or down.')
-    sprint(' # rm to remove task (delete).')
+    sprint(' # rm/del to remove task (delete).')
     sprint("Example: '6 2 c m' -> color subtask 2 in task 6 in magenta.")
     sprint('..')
     sprint('Good luck! press enter to continue.')
@@ -66,12 +66,15 @@ class Task:
             item.set_color(color)
         self.color = color
 
-    def done_tasks(self):
-        done_counter = 0
+    def count_status(self):
+        count = {'regular': 0, 'done': 0, 'taken_care_of': 0, 'priority': 0, 'irrelevant': 0}
         for item in self.itemList:
-            if item.status['done'] is True:
-                done_counter += 1
-        return done_counter
+            is_regular = True
+            for key, val in item.status.items():
+                count[key] += val
+                is_regular = False if val is True else is_regular
+            count['regular'] += is_regular
+        return count
 
     def set_expension(self, val):
         self.expendItems = val
@@ -90,44 +93,47 @@ class Task:
         else:
             visible = True
 
-        if self.status["done"] is True:
-            bg_color = Back.BLACK
-            fg_color = Fore.GREEN + Style.BRIGHT
-
-        elif self.status["taken_care_of"] is True:
-            bg_color = Back.BLACK
-            fg_color = Fore.GREEN + Style.DIM
-
-        elif self.status["irrelevant"] is True:
-            bg_color = Back.BLACK
-            fg_color = Fore.RED + Style.DIM
-
-        elif self.status["priority"] is True:
-            if State["mark_priority"] is True and State['priority_only'] is False:
-                bg_color = Back.BLACK
-                fg_color = Fore.YELLOW
-            else:
-                bg_color = Back.BLACK
-                fg_color = self.color + Style.BRIGHT
-
-        else:
-            bg_color = Back.BLACK
-            fg_color = self.color + Style.BRIGHT
+        bg_color = Back.BLACK
+        fg_color = self.color + Style.BRIGHT
+        for key, val in self.status.items():
+            if val is True:
+                bg_color, fg_color = color_scheme(State, key)
+                break
+        fg_color = self.color if fg_color is '' else fg_color
 
         return fg_color, bg_color, visible
+
+    def build_appendix(self, State, msg_length=50):
+        status = self.count_status()
+
+        task_status = '' if len(self.itemList) == 0 else f'({status["done"]}/{len(self.itemList)})'
+        expand_sign = ' ...' if len(self.itemList) > 0 and self.expendItems is False else ''
+        dates = str(self.creation_date) + '-' + str(self.done_date)
+
+        end = task_status + expand_sign
+        msg_length += len(end)
+
+        expanded_task_status = '('
+        for key, val in status.items():
+            bg, fg = color_scheme(State, key)
+            expanded_task_status += bg + fg + str(val) + ','
+        expanded_task_status[:-1]
+        expanded_task_status += Style.RESET_ALL + f' /{len(self.itemList)})'
+        offset = '{:>' + str(max([165 - msg_length, msg_length + 1])) + '}'
+        verbose = offset.format(f'{dates}, {expanded_task_status}') if State['verbose'] else ''
+
+        appendix = end + verbose
+        return appendix
 
     def print(self, State, start=None):
         global indent
         fg_color, bg_color, visible = self.get_display_params(State)
-        done_tasks = '(' + str(self.done_tasks()) + '/' + str(len(self.itemList)) + ')' if len(
-            self.itemList) > 0 else ''
-        dates = indent * 3 + str(self.creation_date) + '-' + str(self.done_date) if State['verbose'] or self.status[
-            'done'] else ''
 
         if visible is True:
             start = '' if start is None else str(start)
-            end = f'{done_tasks}{dates}' if len(self.itemList) == 0 else f'{done_tasks}{dates} ...'
-            print(f"{bg_color}{fg_color}{start} {self.name} {end}")
+            msg = f'{start} {self.name}'
+            end = self.build_appendix(State, len(msg))
+            print(f"{bg_color}{fg_color}{msg} {end}")
 
         if self.expendItems is True:
             for i, item in enumerate(self.itemList):
@@ -144,6 +150,32 @@ def display_tasks(State, Tasks):
         task.print(State, start=' ' + str(i) + '.')
     sprint('---------------------------------------------------------------------------------------------------------')
 
+def color_scheme(State, status_key):
+    if status_key == 'done':
+        bg_color = Back.BLACK
+        fg_color = Fore.GREEN + Style.BRIGHT
+
+    elif status_key == "taken_care_of":
+        bg_color = Back.BLACK
+        fg_color = Fore.GREEN + Style.DIM
+
+    elif status_key == "irrelevant":
+        bg_color = Back.BLACK
+        fg_color = Fore.RED + Style.DIM
+
+    elif status_key == 'priority':
+        if State["mark_priority"] is True and State['priority_only'] is False:
+            bg_color = Back.BLACK
+            fg_color = Fore.YELLOW
+        else:
+            bg_color = Back.BLACK
+            fg_color = ''
+
+    else:
+        bg_color = Back.BLACK
+        fg_color = ''
+
+    return bg_color, fg_color
 
 def get_task(Tasks, task_pointer_list):
     task = Tasks[task_pointer_list[0]]
@@ -227,6 +259,9 @@ def execute_command_general(cmd_dict, State, Tasks):
 
     elif cmd_dict['opcode'] == 'h':
         State['priority_only'] = not State['priority_only']
+        State['expand_all'] = True
+        for task in Tasks:
+            task.set_expension(State['expand_all'])
 
     elif cmd_dict['opcode'] == 'hh':
         State['mark_priority'] = not State['mark_priority']
@@ -251,7 +286,7 @@ def execute_command_general(cmd_dict, State, Tasks):
 def execute_command_specific(cmd_dict, State, Tasks):
     task = get_task(Tasks, cmd_dict['src_pointer'])
 
-    if cmd_dict['opcode'] == 'rm':
+    if cmd_dict['opcode'] == 'rm' or cmd_dict['opcode'] == 'del':
         pointer = cmd_dict['src_pointer'][-1]
         if len(cmd_dict['src_pointer']) == 1:
             del Tasks[pointer]
