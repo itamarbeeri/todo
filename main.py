@@ -34,6 +34,7 @@ def print_instructions(State):
     sprint('Edit a task - type the task number followed by command')
     sprint(' # d (to toggle Done/UnDone)')
     sprint(' # e (to toggle sub items expantion display)')
+    sprint(' # ee collapse all but this')
     sprint(' # h (to toggle highlight on a task')
     sprint(' # c (change task color) followed by color to change color - r, g, b, c ,m, y, k, w for cyan, blue...')
     sprint(' # a (add sub task) followed by sub task name')
@@ -51,7 +52,7 @@ def print_instructions(State):
 class Task:
     def __init__(self, name, color=Fore.WHITE, expendItems=True):
         self.name = name
-        self.status = {'done': False, 'taken_care_of': False, 'priority': False, 'irrelevant': False}
+        self.status = {'done': False, 'taken_care_of': False, 'irrelevant': False, 'urgent': False, 'priority': False}
         self.itemList = []
         self.color = color
         self.expendItems = expendItems
@@ -66,8 +67,13 @@ class Task:
             item.set_color(color)
         self.color = color
 
+    def set_expension(self, val):
+        self.expendItems = val
+        for item in self.itemList:
+            item.set_expension(val)
+
     def count_status(self):
-        count = {'regular': 0, 'done': 0, 'taken_care_of': 0, 'priority': 0, 'irrelevant': 0}
+        count = {'regular': 0, 'done': 0, 'taken_care_of': 0, 'priority': 0, 'urgent': 0, 'irrelevant': 0}
         for item in self.itemList:
             is_regular = True
             for key, val in item.status.items():
@@ -75,11 +81,6 @@ class Task:
                 is_regular = False if val is True else is_regular
             count['regular'] += is_regular
         return count
-
-    def set_expension(self, val):
-        self.expendItems = val
-        for item in self.itemList:
-            item.set_expension(val)
 
     def get_display_params(self, State):
         if State['priority_only'] is True and self.status['priority'] is False:
@@ -94,12 +95,12 @@ class Task:
             visible = True
 
         bg_color = Back.BLACK
-        fg_color = self.color + Style.BRIGHT
+        fg_color = self.color
         for key, val in self.status.items():
             if val is True:
                 bg_color, fg_color = color_scheme(State, key)
                 break
-        fg_color = self.color if fg_color is '' else fg_color
+        fg_color = self.color if fg_color == '' else fg_color
 
         return fg_color, bg_color, visible
 
@@ -162,7 +163,11 @@ def color_scheme(State, status_key):
 
     elif status_key == "irrelevant":
         bg_color = Back.BLACK
-        fg_color = Fore.RED + Style.DIM
+        fg_color = Fore.LIGHTRED_EX + Style.DIM
+
+    elif status_key == 'urgent' and State['priority_only']:
+        bg_color = Back.YELLOW
+        fg_color = Fore.BLACK
 
     elif status_key == 'priority':
         if State["mark_priority"] is True and State['priority_only'] is False:
@@ -223,12 +228,15 @@ def save_data(taskfile, State, Tasks):
         pickle.dump(data, fp)
 
 
-def parse_command(cmd):
-    cmd = cmd.lower()
+def parse_command(raw_cmd):
+    split_cmd = raw_cmd.split(';')
+    next_cmd = None if len(split_cmd) == 1 else ';'.join(split_cmd[1:])
 
+    cmd = split_cmd[0].lower().lstrip()
     cmd_list = cmd.split(' ')
-    opcode = next(word for word in cmd_list if not word.isnumeric())
-    cmd_list.remove(opcode)
+    opcode = next((word for word in cmd_list if not word.isnumeric()), '')
+    if opcode != '':
+        cmd_list.remove(opcode)
 
     src_pointer = []
     cmd_offset = 0
@@ -242,7 +250,7 @@ def parse_command(cmd):
     src_pointer = '' if len(src_pointer) == 0 else src_pointer
     cmd_dict = {'opcode': opcode, 'src_pointer': src_pointer, 'data': data}
 
-    return cmd_dict
+    return cmd_dict, next_cmd
 
 
 def execute_command_general(cmd_dict, State, Tasks):
@@ -268,6 +276,7 @@ def execute_command_general(cmd_dict, State, Tasks):
         State['mark_priority'] = not State['mark_priority']
 
     elif cmd_dict['opcode'] == 'e':
+        State['priority_only'] = False
         State['expand_all'] = not State['expand_all']
         for task in Tasks:
             task.set_expension(State['expand_all'])
@@ -297,10 +306,19 @@ def execute_command_specific(cmd_dict, State, Tasks):
 
     elif cmd_dict['opcode'] == 'd':
         task.status['done'] = not task.status['done']
+        task.status['urgent'] = False
         task.done_date = date.today()
 
     elif cmd_dict['opcode'] == 'e':
+        State['priority_only'] = False
         task.expendItems = not task.expendItems
+
+    elif cmd_dict['opcode'] == 'ee':
+        State['priority_only'] = False
+        State['expand_all'] = False
+        for ttask in Tasks:
+            ttask.set_expension(State['expand_all'])
+        task.set_expension(True)
 
     elif cmd_dict['opcode'] == 'a':
         task.add_item(cmd_dict['data'])
@@ -308,8 +326,13 @@ def execute_command_specific(cmd_dict, State, Tasks):
     elif cmd_dict['opcode'] == 'h':
         task.status['priority'] = not task.status['priority']
 
+    elif cmd_dict['opcode'] == 'u':
+        task.status['urgent'] = not task.status['urgent']
+        task.status['priority'] = True if task.status['urgent'] is True else task.status['priority']
+
     elif cmd_dict['opcode'] == 'g':
         task.status['taken_care_of'] = not task.status['taken_care_of']
+        task.status['urgent'] = False
 
     elif cmd_dict['opcode'] == 'f':
         task.status['irrelevant'] = not task.status['irrelevant']
@@ -345,9 +368,27 @@ def execute_command_specific(cmd_dict, State, Tasks):
 
         task.set_color(color)
 
+    elif cmd_dict['opcode'].lstrip() == '':
+        sprint(f"{task.status}")
+        temp_expension = task.expendItems
+
+        task.set_expension(True)
+        temp_state = {"display_done": True, "display_taken_care_of": True, "mark_priority": True, "priority_only": False,
+         "display_irrelevant": True, 'expand_all': True, 'verbose': True, 'prv_src_pointer': [0]}
+        task.print(temp_state)
+
+        task.set_expension(temp_expension)
+        State['display'] = False
+
     else:
         task.name = ' '.join([cmd_dict['opcode'], cmd_dict['data']])
 
+
+def execute_command(State, Tasks, cmd_dict):
+    if len(cmd_dict['src_pointer']) == 0:
+        execute_command_general(cmd_dict, State, Tasks)
+    else:
+        execute_command_specific(cmd_dict, State, Tasks)
 
 def main():
     taskfile = "taskfile"
@@ -358,20 +399,17 @@ def main():
 
     while True:
         cmd = input()
-        cmd_dict = parse_command(cmd)
-        if len(cmd_dict['src_pointer']) == 0:
-            execute_command_general(cmd_dict, State, Tasks)
-        else:
-            execute_command_specific(cmd_dict, State, Tasks)
-        # try:
-        #     if len(cmd_dict['src_pointer']) == 0:
-        #         execute_command_general(cmd_dict, State, Tasks)
-        #     else:
-        #         execute_command_specific(cmd_dict, State, Tasks)
-        # except:
-        #     sprint(f'failed in executing commad {cmd_dict}')
+        cmd_dict, next_cmd = parse_command(cmd)
+        execute_command(State, Tasks, cmd_dict)
 
-        display_tasks(State, Tasks)
+        while next_cmd is not None:
+            cmd_dict, next_cmd = parse_command(next_cmd)
+            execute_command(State, Tasks, cmd_dict)
+
+        if State['display']:
+            display_tasks(State, Tasks)
+        else:
+            State['display'] = True
         save_data(taskfile, State, Tasks)
 
 
