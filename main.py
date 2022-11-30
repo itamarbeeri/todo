@@ -8,6 +8,7 @@ import colorama
 from colorama import Fore, Back, Style
 
 colorama.init(autoreset=True)
+taskfile = "taskfile"
 
 
 def sys_print(text):
@@ -141,12 +142,61 @@ class Task:
                     sub_start = ''.join([' ' for _ in range(start.count(' '))]) + '    ' + str(i) + '.'
                 subTask.print(State, start=sub_start)
 
+class Command:
+    def __init__(self, raw_cmd):
+        self.cmd, self.next_raw_cmd = self.commad_separator(raw_cmd)
+        self.opcode = self.extract_opcode()
+        self.task_location = self.extract_task_location()
+        self.data = ' '.join(self.cmd)
+
+    def commad_separator(self, raw_cmd):
+        split_cmd = raw_cmd.split(';')
+        cmd = split_cmd[0].lstrip().split(' ')
+        next_raw_cmd = None if len(split_cmd[1:]) == 0 else ';'.join(split_cmd[1:])
+
+        return cmd, next_raw_cmd
+
+    def extract_opcode(self):
+        opcode = next((word for word in self.cmd if not word.isnumeric()), None)
+        if opcode is not None:
+            self.cmd.remove(opcode)
+
+        return opcode
+
+    def extract_task_location(self):
+        task_location = list()
+        for word in self.cmd:
+            if word.isnumeric():
+                task_location.append(int(word))
+            else:
+                break
+        for word in task_location:
+            self.cmd.remove(str(word))
+
+        return task_location
+
+    def execute(self, State, Tasks):
+        if len(self.task_location) == 0:
+            execute_command_general(self, State, Tasks)
+        else:
+            execute_command_specific(self, State, Tasks)
+
+        if self.next_raw_cmd is not None:
+            cmd = Command(self.next_raw_cmd)
+            cmd.execute(State, Tasks)
+
+
 
 def display_tasks(State, Tasks):
-    sys_print('---------------------------------------------------------------------------------------------------------')
-    for i, task in enumerate(Tasks):
-        task.print(State, start=' ' + str(i) + '.')
-    sys_print('---------------------------------------------------------------------------------------------------------')
+    if State['display']:
+        sys_print('---------------------------------------------------------------------------------------------------')
+        for i, task in enumerate(Tasks):
+            task.print(State, start=' ' + str(i) + '.')
+        sys_print('---------------------------------------------------------------------------------------------------')
+    else:
+        State['display'] = True
+
+
 
 def color_scheme(State, status_key):
     if status_key == 'done':
@@ -228,147 +278,123 @@ def save_data(taskfile, State, Tasks):
         pickle.dump(data, fp)
 
 
-def parse_command(raw_cmd):
-    split_cmd = raw_cmd.split(';')
-    next_cmd = None if len(split_cmd) == 1 else ';'.join(split_cmd[1:])
 
-    cmd = split_cmd[0].lower().lstrip()
-    cmd_list = cmd.split(' ')
-    opcode = next((word for word in cmd_list if not word.isnumeric()), '')
-    if opcode != '':
-        cmd_list.remove(opcode)
-
-    src_pointer = []
-    cmd_offset = 0
-    if len(cmd_list) == 0:
-        data = ''
-    else:
-        while cmd_offset < len(cmd_list) and cmd_list[cmd_offset].isnumeric():
-            src_pointer.append(int(cmd_list[cmd_offset]))
-            cmd_offset += 1
-        data = ' '.join(cmd_list[cmd_offset:])
-    src_pointer = '' if len(src_pointer) == 0 else src_pointer
-    cmd_dict = {'opcode': opcode, 'src_pointer': src_pointer, 'data': data}
-
-    return cmd_dict, next_cmd
-
-
-def execute_command_general(cmd_dict, State, Tasks):
-    if cmd_dict['opcode'] == 'help':
+def execute_command_general(cmd, State, Tasks):
+    if cmd.opcode == 'help':
         print_instructions(State)
 
-    elif cmd_dict['opcode'] == 'd':
+    elif cmd.opcode == 'd':
         State['display_done'] = not State['display_done']
 
-    elif cmd_dict['opcode'] == 'f':
+    elif cmd.opcode == 'f':
         State['display_irrelevant'] = not State['display_irrelevant']
 
-    elif cmd_dict['opcode'] == 'g':
+    elif cmd.opcode == 'g':
         State['display_taken_care_of'] = not State['display_taken_care_of']
 
-    elif cmd_dict['opcode'] == 'h':
+    elif cmd.opcode == 'h':
         State['priority_only'] = not State['priority_only']
         State['expand_all'] = True
         for task in Tasks:
             task.set_expension(State['expand_all'])
 
-    elif cmd_dict['opcode'] == 'hh':
+    elif cmd.opcode == 'hh':
         State['mark_priority'] = not State['mark_priority']
 
-    elif cmd_dict['opcode'] == 'e':
+    elif cmd.opcode == 'e':
         State['priority_only'] = False
         State['expand_all'] = not State['expand_all']
         for task in Tasks:
             task.set_expension(State['expand_all'])
 
-    elif cmd_dict['opcode'] == 'v':
+    elif cmd.opcode == 'v':
         State['verbose'] = not State['verbose']
 
-    elif cmd_dict['opcode'] == 'w' or cmd_dict['opcode'] == 's':
-        direction = - 1 if cmd_dict['opcode'] == 'w' else 1
+    elif cmd.opcode == 'w' or cmd.opcode == 's':
+        direction = - 1 if cmd.opcode == 'w' else 1
         State['prv_src_pointer'] = swap_tasks(Tasks, State['prv_src_pointer'], direction)
 
     else:
-        new_task = ' '.join([cmd_dict['opcode'], cmd_dict['src_pointer'], cmd_dict['data']])
+        new_task = ' '.join(cmd.opcode, cmd.task_location, cmd.data)
         Tasks.append(Task(new_task))
 
 
-def execute_command_specific(cmd_dict, State, Tasks):
-    task = get_task(Tasks, cmd_dict['src_pointer'])
+def execute_command_specific(cmd, State, Tasks):
+    task = get_task(Tasks, cmd.task_location)
 
-    if cmd_dict['opcode'] == 'rm' or cmd_dict['opcode'] == 'del':
-        pointer = cmd_dict['src_pointer'][-1]
-        if len(cmd_dict['src_pointer']) == 1:
+    if cmd.opcode == 'rm' or cmd.opcode == 'del':
+        pointer = cmd.task_location[-1]
+        if len(cmd.task_location) == 1:
             del Tasks[pointer]
         else:
-            parent_task = get_task(Tasks, cmd_dict['src_pointer'][:-1])
+            parent_task = get_task(Tasks, cmd.task_location[:-1])
             del parent_task.subTasks[pointer]
 
-    elif cmd_dict['opcode'] == 'd':
+    elif cmd.opcode == 'd':
         task.status['done'] = not task.status['done']
         task.status['urgent'] = False
         task.done_date = date.today()
 
-    elif cmd_dict['opcode'] == 'e':
+    elif cmd.opcode == 'e':
         State['priority_only'] = False
         task.set_expension(not task.expand)
 
-    elif cmd_dict['opcode'] == 'ee':
+    elif cmd.opcode == 'ee':
         State['priority_only'] = False
         State['expand_all'] = False
         for ttask in Tasks:
             ttask.set_expension(State['expand_all'])
         task.set_expension(True)
 
-    elif cmd_dict['opcode'] == 'r':
-        task.name = cmd_dict['data']
+    elif cmd.opcode == 'r':
+        task.name = cmd.data
 
-    elif cmd_dict['opcode'] == 'h':
+    elif cmd.opcode == 'h':
         task.status['priority'] = not task.status['priority']
 
-    elif cmd_dict['opcode'] == 'u':
+    elif cmd.opcode == 'u':
         task.status['urgent'] = not task.status['urgent']
         task.status['priority'] = True if task.status['urgent'] is True else task.status['priority']
 
-    elif cmd_dict['opcode'] == 'g':
+    elif cmd.opcode == 'g':
         task.status['taken_care_of'] = not task.status['taken_care_of']
         task.status['urgent'] = False
 
-    elif cmd_dict['opcode'] == 'f':
+    elif cmd.opcode == 'f':
         task.status['irrelevant'] = not task.status['irrelevant']
 
-    elif cmd_dict['opcode'] == 'w' or cmd_dict['opcode'] == 's':
-        direction = - 1 if cmd_dict['opcode'] == 'w' else 1
-        State['prv_src_pointer'] = swap_tasks(Tasks, cmd_dict['src_pointer'], direction)
+    elif cmd.opcode == 'w' or cmd.opcode == 's':
+        direction = - 1 if cmd.opcode == 'w' else 1
+        State['prv_src_pointer'] = swap_tasks(Tasks, cmd.task_location, direction)
 
-    elif cmd_dict['opcode'] == 'ww' or cmd_dict['opcode'] == 'ss':
-        pointer = cmd_dict['src_pointer'][-1]
-        if len(cmd_dict['src_pointer']) == 1:
+    elif cmd.opcode == 'ww' or cmd.opcode == 'ss':
+        pointer = cmd.task_location[-1]
+        if len(cmd.task_location) == 1:
             length = len(Tasks)
         else:
-            parent_task = get_task(Tasks, cmd_dict['src_pointer'][:-1])
+            parent_task = get_task(Tasks, cmd.task_location[:-1])
             length = len(parent_task.subTasks)
 
-        direction = - pointer if cmd_dict['opcode'] == 'ww' else length - pointer - 1
-        State['prv_src_pointer'] = swap_tasks(Tasks, cmd_dict['src_pointer'], direction)
+        direction = - pointer if cmd.opcode == 'ww' else length - pointer - 1
+        State['prv_src_pointer'] = swap_tasks(Tasks, cmd.task_location, direction)
 
-    elif cmd_dict['opcode'] == 'c':
-        if cmd_dict['data'].startswith('b'):
+    elif cmd.opcode == 'c':
+        if cmd.data.startswith('b'):
             color = Fore.BLUE
-        elif cmd_dict['data'].startswith('m'):
+        elif cmd.data.startswith('m'):
             color = Fore.LIGHTMAGENTA_EX
-        elif cmd_dict['data'].startswith('c'):
+        elif cmd.data.startswith('c'):
             color = Fore.CYAN
-        elif cmd_dict['data'].startswith('w'):
+        elif cmd.data.startswith('w'):
             color = Fore.WHITE
-        elif cmd_dict['data'].startswith('k'):
-            color = Fore.BLACK
+        elif cmd.data.startswith('r'):
+            color = Fore.RED
         else:
             color = Fore.WHITE
 
         task.set_color(color)
 
-    elif cmd_dict['opcode'].lstrip() == '':
+    elif cmd.opcode == None:
         sys_print(f"{task.status}")
         temp_expension = task.expand
 
@@ -381,37 +407,22 @@ def execute_command_specific(cmd_dict, State, Tasks):
         State['display'] = False
 
     else:
-        task.add_subTask(' '.join([cmd_dict['opcode'], cmd_dict['data']]))
+        task.add_subTask(' '.join([cmd.opcode, cmd.data]))
 
-
-def execute_command(State, Tasks, cmd_dict):
-    if len(cmd_dict['src_pointer']) == 0:
-        execute_command_general(cmd_dict, State, Tasks)
-    else:
-        execute_command_specific(cmd_dict, State, Tasks)
 
 def main():
-    taskfile = "taskfile"
+    global taskfile
     State, Tasks = load_data(taskfile)
-    State['prv_src_pointer'] = [0]
+
     sys_print('welcome to TODO list:')
     display_tasks(State, Tasks)
 
     while True:
-        cmd = input()
-        cmd_dict, next_cmd = parse_command(cmd)
-        execute_command(State, Tasks, cmd_dict)
+        cmd = Command(input())
+        cmd.execute(State, Tasks)
 
-        while next_cmd is not None:
-            cmd_dict, next_cmd = parse_command(next_cmd)
-            execute_command(State, Tasks, cmd_dict)
-
-        if State['display']:
-            display_tasks(State, Tasks)
-        else:
-            State['display'] = True
+        display_tasks(State, Tasks)
         save_data(taskfile, State, Tasks)
-
 
 if __name__ == '__main__':
     main()
