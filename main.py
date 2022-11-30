@@ -9,10 +9,8 @@ from colorama import Fore, Back, Style
 
 colorama.init(autoreset=True)
 
-indent = '    '
 
-
-def sprint(text):
+def sys_print(text):
     print(f"{Fore.LIGHTRED_EX}{text}")
 
 
@@ -44,42 +42,43 @@ def print_instructions(State):
                 'Example: "6 2 c m" -> color subtask 2 in task 6 in magenta.\n' \
                 '..\n' \
                 'Good luck! press enter to continue.\n'
-    sprint(help_text)
+    sys_print(help_text)
     input()
 
 
 class Task:
-    def __init__(self, name, color=Fore.WHITE, expendItems=True):
+    def __init__(self, name, color=Fore.WHITE):
         self.name = name
-        self.status = {'done': False, 'taken_care_of': False, 'irrelevant': False, 'urgent': False, 'priority': False}
-        self.itemList = []
         self.color = color
-        self.expendItems = expendItems
+        self.subTasks = []
+        self.expand = True
         self.creation_date = date.today()
         self.done_date = None
+        self.status = {'done': False, 'taken_care_of': False, 'irrelevant': False, 'urgent': False, 'priority': False}
 
-    def add_item(self, name):
-        self.itemList.append(Task(name, color=self.color))
+
+    def add_subTask(self, name):
+        self.subTasks.append(Task(name, color=self.color))
 
     def set_color(self, color):
-        for item in self.itemList:
-            item.set_color(color)
+        for subTask in self.subTasks:
+            subTask.set_color(color)
         self.color = color
 
     def set_expension(self, val):
-        self.expendItems = val
-        for item in self.itemList:
-            item.set_expension(val)
+        self.expand = val
+        for subTask in self.subTasks:
+            subTask.set_expension(val)
 
     def count_status(self):
-        count = {'regular': 0, 'done': 0, 'taken_care_of': 0, 'priority': 0, 'urgent': 0, 'irrelevant': 0}
-        for item in self.itemList:
+        counter = {'regular': 0, 'done': 0, 'taken_care_of': 0, 'priority': 0, 'urgent': 0, 'irrelevant': 0}
+        for subTask in self.subTasks:
             is_regular = True
-            for key, val in item.status.items():
-                count[key] += val
+            for key, val in subTask.status.items():
+                counter[key] += val
                 is_regular = False if val is True else is_regular
-            count['regular'] += is_regular
-        return count
+            counter['regular'] += is_regular
+        return counter
 
     def get_display_params(self, State):
         if State['priority_only'] is True and self.status['priority'] is False:
@@ -106,8 +105,8 @@ class Task:
     def build_appendix(self, State, msg_length=50):
         status = self.count_status()
 
-        task_status = '' if len(self.itemList) == 0 else f'({status["done"]}/{len(self.itemList)})'
-        expand_sign = '' if len(self.itemList) == 0 else " ..." if self.expendItems is False else ':'
+        task_status = '' if len(self.subTasks) == 0 else f'({status["done"]}/{len(self.subTasks)})'
+        expand_sign = '' if len(self.subTasks) == 0 else " ..." if self.expand is False else ':'
         dates = str(self.creation_date) + '-' + str(self.done_date)
 
         end = task_status + expand_sign
@@ -118,7 +117,7 @@ class Task:
             bg, fg = color_scheme(State, key)
             expanded_task_status += bg + fg + str(val) + ','
         expanded_task_status[:-1]
-        expanded_task_status += Style.RESET_ALL + f' /{len(self.itemList)})'
+        expanded_task_status += Style.RESET_ALL + f' /{len(self.subTasks)})'
         offset = '{:>' + str(max([165 - msg_length, msg_length + 1])) + '}'
         verbose = offset.format(f'{dates}, {expanded_task_status}') if State['verbose'] else ''
 
@@ -126,7 +125,6 @@ class Task:
         return appendix
 
     def print(self, State, start=None):
-        global indent
         fg_color, bg_color, visible = self.get_display_params(State)
 
         if visible is True:
@@ -135,20 +133,20 @@ class Task:
             end = self.build_appendix(State, len(msg))
             print(f"{bg_color}{fg_color}{msg} {end}")
 
-        if self.expendItems is True:
-            for i, item in enumerate(self.itemList):
+        if self.expand is True:
+            for i, subTask in enumerate(self.subTasks):
                 if State['priority_only'] is True:
                     sub_start = start + str(i) + '.'
                 else:
-                    sub_start = ''.join([' ' for _ in range(start.count(' '))]) + indent + str(i) + '.'
-                item.print(State, start=sub_start)
+                    sub_start = ''.join([' ' for _ in range(start.count(' '))]) + '    ' + str(i) + '.'
+                subTask.print(State, start=sub_start)
 
 
 def display_tasks(State, Tasks):
-    sprint('---------------------------------------------------------------------------------------------------------')
+    sys_print('---------------------------------------------------------------------------------------------------------')
     for i, task in enumerate(Tasks):
         task.print(State, start=' ' + str(i) + '.')
-    sprint('---------------------------------------------------------------------------------------------------------')
+    sys_print('---------------------------------------------------------------------------------------------------------')
 
 def color_scheme(State, status_key):
     if status_key == 'done':
@@ -188,7 +186,7 @@ def color_scheme(State, status_key):
 def get_task(Tasks, task_pointer_list):
     task = Tasks[task_pointer_list[0]]
     for num in task_pointer_list[1:]:
-        task = task.itemList[num]
+        task = task.subTasks[num]
     return task
 
 
@@ -202,10 +200,10 @@ def swap_tasks(Tasks, task_pointer_list, direction):
             task_pointer_list[-1] = pointer + direction
     else:
         parent_task = get_task(Tasks, task_pointer_list[:-1])
-        if 0 <= pointer + direction < len(parent_task.itemList):
-            temp = parent_task.itemList[pointer]
-            parent_task.itemList[pointer] = parent_task.itemList[pointer + direction]
-            parent_task.itemList[pointer + direction] = temp
+        if 0 <= pointer + direction < len(parent_task.subTasks):
+            temp = parent_task.subTasks[pointer]
+            parent_task.subTasks[pointer] = parent_task.subTasks[pointer + direction]
+            parent_task.subTasks[pointer + direction] = temp
             task_pointer_list[-1] = pointer + direction
     return task_pointer_list
 
@@ -304,7 +302,7 @@ def execute_command_specific(cmd_dict, State, Tasks):
             del Tasks[pointer]
         else:
             parent_task = get_task(Tasks, cmd_dict['src_pointer'][:-1])
-            del parent_task.itemList[pointer]
+            del parent_task.subTasks[pointer]
 
     elif cmd_dict['opcode'] == 'd':
         task.status['done'] = not task.status['done']
@@ -313,7 +311,7 @@ def execute_command_specific(cmd_dict, State, Tasks):
 
     elif cmd_dict['opcode'] == 'e':
         State['priority_only'] = False
-        task.set_expension(not task.expendItems)
+        task.set_expension(not task.expand)
 
     elif cmd_dict['opcode'] == 'ee':
         State['priority_only'] = False
@@ -349,7 +347,7 @@ def execute_command_specific(cmd_dict, State, Tasks):
             length = len(Tasks)
         else:
             parent_task = get_task(Tasks, cmd_dict['src_pointer'][:-1])
-            length = len(parent_task.itemList)
+            length = len(parent_task.subTasks)
 
         direction = - pointer if cmd_dict['opcode'] == 'ww' else length - pointer - 1
         State['prv_src_pointer'] = swap_tasks(Tasks, cmd_dict['src_pointer'], direction)
@@ -371,8 +369,8 @@ def execute_command_specific(cmd_dict, State, Tasks):
         task.set_color(color)
 
     elif cmd_dict['opcode'].lstrip() == '':
-        sprint(f"{task.status}")
-        temp_expension = task.expendItems
+        sys_print(f"{task.status}")
+        temp_expension = task.expand
 
         task.set_expension(True)
         temp_state = {"display_done": True, "display_taken_care_of": True, "mark_priority": True, "priority_only": False,
@@ -383,7 +381,7 @@ def execute_command_specific(cmd_dict, State, Tasks):
         State['display'] = False
 
     else:
-        task.add_item(' '.join([cmd_dict['opcode'], cmd_dict['data']]))
+        task.add_subTask(' '.join([cmd_dict['opcode'], cmd_dict['data']]))
 
 
 def execute_command(State, Tasks, cmd_dict):
@@ -396,7 +394,7 @@ def main():
     taskfile = "taskfile"
     State, Tasks = load_data(taskfile)
     State['prv_src_pointer'] = [0]
-    sprint('welcome to TODO list:')
+    sys_print('welcome to TODO list:')
     display_tasks(State, Tasks)
 
     while True:
