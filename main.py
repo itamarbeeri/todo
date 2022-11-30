@@ -17,35 +17,34 @@ def sprint(text):
 
 
 def print_instructions(State):
-    sprint('Welcome to TODO list.')
-    sprint('Display state is:')
-    sprint(State)
-    sprint('..')
-    sprint('To create a new task - type the task name.')
-    sprint('e to expand/collapse all')
-    sprint('d to hide/display all done tasks')
-    sprint('f to hide/display all irrelevant tasks')
-    sprint('g to hide/display all taken_care_of tasks')
-    sprint('v to hide/display date log')
-    sprint('h to mark/unmark all highligthed tasks')
-    sprint('hh to hide/display all highligthed tasks')
-    sprint("Example: 'd' -> display/dont display done tasks.")
-    sprint('')
-    sprint('Edit a task - type the task number followed by command')
-    sprint(' # d (to toggle Done/UnDone)')
-    sprint(' # e (to toggle sub items expantion display)')
-    sprint(' # ee collapse all but this')
-    sprint(' # h (to toggle highlight on a task')
-    sprint(' # c (change task color) followed by color to change color - r, g, b, c ,m, y, k, w for cyan, blue...')
-    sprint(' # a (add sub task) followed by sub task name')
-    sprint(' # g to toggle a marker')
-    sprint(' # f to toggle red mark and hide')
-    sprint(' # w/s to move task up or down.')
-    sprint(' # ww/ss to move task all the way up or down.')
-    sprint(' # rm/del to remove task (delete).')
-    sprint("Example: '6 2 c m' -> color subtask 2 in task 6 in magenta.")
-    sprint('..')
-    sprint('Good luck! press enter to continue.')
+    help_text = f'Welcome to TODO list.\n' \
+                f'State is: {State}\n' \
+                f'..\n' \
+                f'To create a new task - type the task name.\n' \
+                f'e to expand/collapse all\n' \
+                'd to hide/display all done tasks\n' \
+                'f to hide/display all irrelevant tasks\n' \
+                'g to hide/display all taken_care_of tasks\n' \
+                'v to hide/display date log\n' \
+                'h to mark/unmark all highligthed tasks\n' \
+                'hh to hide/display all highligthed tasks\n' \
+                'Example: "d" -> display/dont display done tasks.\n' \
+                '\nadd a subtask - type the task number followed by the new task\n' \
+                ' # d (to toggle Done/UnDone)\n' \
+                ' # e (to toggle sub items expantion display)\n' \
+                ' # ee collapse all but this\n' \
+                ' # h (to toggle highlight on a task\n' \
+                ' # c (change task color) followed by color to change color - r, g, b, c ,m, y, k, w for cyan, blue...\n' \
+                ' # r rename task \n' \
+                ' # g to toggle a marker\n' \
+                ' # f to toggle red mark and hide\n' \
+                ' # w/s to move task up or down.\n' \
+                ' # ww/ss to move task all the way up or down.\n' \
+                ' # rm/del to remove task (delete).\n' \
+                'Example: "6 2 c m" -> color subtask 2 in task 6 in magenta.\n' \
+                '..\n' \
+                'Good luck! press enter to continue.\n'
+    sprint(help_text)
     input()
 
 
@@ -108,7 +107,6 @@ class Task:
         status = self.count_status()
 
         task_status = '' if len(self.itemList) == 0 else f'({status["done"]}/{len(self.itemList)})'
-        expand_sign = ' ...' if len(self.itemList) > 0 and self.expendItems is False else ''
         expand_sign = '' if len(self.itemList) == 0 else " ..." if self.expendItems is False else ':'
         dates = str(self.creation_date) + '-' + str(self.done_date)
 
@@ -165,9 +163,13 @@ def color_scheme(State, status_key):
         bg_color = Back.BLACK
         fg_color = Fore.LIGHTRED_EX + Style.DIM
 
-    elif status_key == 'urgent' and State['priority_only']:
-        bg_color = Back.YELLOW
-        fg_color = Fore.BLACK
+    elif status_key == 'urgent':
+        if State['priority_only'] or State["mark_priority"]:
+            bg_color = Back.BLACK
+            fg_color = Fore.LIGHTYELLOW_EX
+        else:
+            bg_color = Back.BLACK
+            fg_color = ''
 
     elif status_key == 'priority':
         if State["mark_priority"] is True and State['priority_only'] is False:
@@ -311,7 +313,7 @@ def execute_command_specific(cmd_dict, State, Tasks):
 
     elif cmd_dict['opcode'] == 'e':
         State['priority_only'] = False
-        task.expendItems = not task.expendItems
+        task.set_expension(not task.expendItems)
 
     elif cmd_dict['opcode'] == 'ee':
         State['priority_only'] = False
@@ -320,8 +322,8 @@ def execute_command_specific(cmd_dict, State, Tasks):
             ttask.set_expension(State['expand_all'])
         task.set_expension(True)
 
-    elif cmd_dict['opcode'] == 'a':
-        task.add_item(cmd_dict['data'])
+    elif cmd_dict['opcode'] == 'r':
+        task.name = cmd_dict['data']
 
     elif cmd_dict['opcode'] == 'h':
         task.status['priority'] = not task.status['priority']
@@ -381,7 +383,7 @@ def execute_command_specific(cmd_dict, State, Tasks):
         State['display'] = False
 
     else:
-        task.name = ' '.join([cmd_dict['opcode'], cmd_dict['data']])
+        task.add_item(' '.join([cmd_dict['opcode'], cmd_dict['data']]))
 
 
 def execute_command(State, Tasks, cmd_dict):
