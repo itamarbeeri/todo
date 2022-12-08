@@ -12,7 +12,32 @@ taskfile = "taskfile"
 
 
 def sys_print(text):
-    print(f"{Fore.LIGHTRED_EX}{text}")
+    print(f"{Fore.RED}{text}")
+
+
+def load_data(taskfile):
+    if not path.isfile(taskfile):
+        State = {"display_done": True, "display_taken_care_of": True, "mark_priority": True, "priority_only": False,
+                 "display_irrelevant": True, 'expand_all': True, 'verbose': False, 'prv_src_pointer': [0]}
+        return [State, []]
+
+    with open(taskfile, "rb") as fp:
+        data = pickle.load(fp)
+        State = data[0]
+        Tasks = data[1]
+
+    return State, Tasks
+
+
+def save_data(taskfile, State, Tasks):
+    data = [State, Tasks]
+    with open(taskfile, "wb") as fp:
+        pickle.dump(data, fp)
+
+
+def update_tasks(Tasks):
+    for task in Tasks:
+        task.update_status()
 
 
 def print_instructions(State):
@@ -37,6 +62,7 @@ def print_instructions(State):
                 ' # r rename task \n' \
                 ' # g to toggle a marker\n' \
                 ' # f to toggle red mark and hide\n' \
+                ' # p dayofthemonth to set task periodically,\n' \
                 ' # w/s to move task up or down.\n' \
                 ' # ww/ss to move task all the way up or down.\n' \
                 ' # rm/del to remove task (delete).\n' \
@@ -56,7 +82,21 @@ class Task:
         self.creation_date = date.today()
         self.done_date = None
         self.status = {'done': False, 'taken_care_of': False, 'irrelevant': False, 'urgent': False, 'priority': False}
+        self.period = {'activationDay': 0, 'lastActivation': date.today()}
 
+    def update_status(self):
+        today = date.today()
+        if self.status['done'] is True and self.status['priority'] is True and self.period['activationDay'] == 0:
+            if today.month > self.done_date.month:
+                self.status['priority'] = False
+
+        if self.period['lastActivation'].month != today.month:
+            if self.period['activationDay'] >= today.day:
+                self.period['lastActivation'] = today
+                self.status['done'] = False
+
+        for subTask in self.subTasks:
+            subTask.update_status()
 
     def add_subTask(self, name):
         self.subTasks.append(Task(name, color=self.color))
@@ -142,12 +182,13 @@ class Task:
                     sub_start = ''.join([' ' for _ in range(start.count(' '))]) + '    ' + str(i) + '.'
                 subTask.print(State, start=sub_start)
 
+
 class Command:
     def __init__(self, raw_cmd):
         self.cmd, self.next_raw_cmd = self.commad_separator(raw_cmd)
         self.opcode = self.extract_opcode()
         self.task_location = self.extract_task_location()
-        self.data = ' '.join(self.cmd)
+        self.data = self.extract_data()
 
     def commad_separator(self, raw_cmd):
         split_cmd = raw_cmd.split(';')
@@ -157,23 +198,32 @@ class Command:
         return cmd, next_raw_cmd
 
     def extract_opcode(self):
-        opcode = next((word for word in self.cmd if not word.isnumeric()), None)
-        if opcode is not None:
-            self.cmd.remove(opcode)
-
-        return opcode
+        return next((word for word in self.cmd if not word.isnumeric()), None)
 
     def extract_task_location(self):
         task_location = list()
-        for word in self.cmd:
+        root_task = next((word for word in self.cmd if word.isnumeric()), None)
+        if root_task is None:
+            return task_location
+
+        root_index = self.cmd.index(root_task)
+        task_location.append(int(root_task))
+        for word in self.cmd[root_index + 1:]:
             if word.isnumeric():
                 task_location.append(int(word))
             else:
                 break
-        for word in task_location:
-            self.cmd.remove(str(word))
 
         return task_location
+
+
+    def extract_data(self):
+        if self.opcode is not None:
+            self.cmd.remove(self.opcode)
+        for i in self.task_location:
+            self.cmd.remove(str(i))
+
+        return ' '.join(self.cmd)
 
     def execute(self, State, Tasks):
         if len(self.task_location) == 0:
@@ -186,7 +236,6 @@ class Command:
             cmd.execute(State, Tasks)
 
 
-
 def display_tasks(State, Tasks):
     if State['display']:
         sys_print('---------------------------------------------------------------------------------------------------')
@@ -197,41 +246,28 @@ def display_tasks(State, Tasks):
         State['display'] = True
 
 
-
 def color_scheme(State, status_key):
+    bg_color = Back.BLACK
+    fg_color = ''
+
     if status_key == 'done':
-        bg_color = Back.BLACK
-        fg_color = Fore.GREEN + Style.BRIGHT
+        fg_color = Fore.LIGHTGREEN_EX
 
     elif status_key == "taken_care_of":
-        bg_color = Back.BLACK
-        fg_color = Fore.GREEN + Style.DIM
+        fg_color = Fore.GREEN
 
     elif status_key == "irrelevant":
-        bg_color = Back.BLACK
-        fg_color = Fore.LIGHTRED_EX + Style.DIM
+        fg_color = Fore.RED + Style.DIM
 
     elif status_key == 'urgent':
-        if State['priority_only'] or State["mark_priority"]:
-            bg_color = Back.BLACK
-            fg_color = Fore.LIGHTYELLOW_EX
-        else:
-            bg_color = Back.BLACK
-            fg_color = ''
+        fg_color = Fore.LIGHTYELLOW_EX
 
     elif status_key == 'priority':
         if State["mark_priority"] is True and State['priority_only'] is False:
-            bg_color = Back.BLACK
-            fg_color = Fore.YELLOW
-        else:
-            bg_color = Back.BLACK
-            fg_color = ''
-
-    else:
-        bg_color = Back.BLACK
-        fg_color = ''
+            fg_color = Fore.LIGHTYELLOW_EX
 
     return bg_color, fg_color
+
 
 def get_task(Tasks, task_pointer_list):
     task = Tasks[task_pointer_list[0]]
@@ -256,27 +292,6 @@ def swap_tasks(Tasks, task_pointer_list, direction):
             parent_task.subTasks[pointer + direction] = temp
             task_pointer_list[-1] = pointer + direction
     return task_pointer_list
-
-
-def load_data(taskfile):
-    if not path.isfile(taskfile):
-        State = {"display_done": True, "display_taken_care_of": True, "mark_priority": True, "priority_only": False,
-                 "display_irrelevant": True, 'expand_all': True, 'verbose': False, 'prv_src_pointer': [0]}
-        return [State, []]
-
-    with open(taskfile, "rb") as fp:
-        data = pickle.load(fp)
-        State = data[0]
-        Tasks = data[1]
-
-    return State, Tasks
-
-
-def save_data(taskfile, State, Tasks):
-    data = [State, Tasks]
-    with open(taskfile, "wb") as fp:
-        pickle.dump(data, fp)
-
 
 
 def execute_command_general(cmd, State, Tasks):
@@ -315,7 +330,7 @@ def execute_command_general(cmd, State, Tasks):
         State['prv_src_pointer'] = swap_tasks(Tasks, State['prv_src_pointer'], direction)
 
     else:
-        new_task = ' '.join(cmd.opcode, cmd.task_location, cmd.data)
+        new_task = ' '.join([cmd.opcode, cmd.data])
         Tasks.append(Task(new_task))
 
 
@@ -363,6 +378,9 @@ def execute_command_specific(cmd, State, Tasks):
     elif cmd.opcode == 'f':
         task.status['irrelevant'] = not task.status['irrelevant']
 
+    elif cmd.opcode == 'p':
+        task.period = {'activationDay': cmd.data, 'lastActivation': date.today()}
+
     elif cmd.opcode == 'w' or cmd.opcode == 's':
         direction = - 1 if cmd.opcode == 'w' else 1
         State['prv_src_pointer'] = swap_tasks(Tasks, cmd.task_location, direction)
@@ -380,15 +398,17 @@ def execute_command_specific(cmd, State, Tasks):
 
     elif cmd.opcode == 'c':
         if cmd.data.startswith('b'):
-            color = Fore.BLUE
+            color = Fore.LIGHTBLUE_EX
         elif cmd.data.startswith('m'):
             color = Fore.LIGHTMAGENTA_EX
         elif cmd.data.startswith('c'):
-            color = Fore.CYAN
+            color = Fore.LIGHTCYAN_EX
+        elif cmd.data.startswith('y'):
+            color = Fore.YELLOW
         elif cmd.data.startswith('w'):
             color = Fore.WHITE
         elif cmd.data.startswith('r'):
-            color = Fore.RED
+            color = Fore.LIGHTRED_EX
         else:
             color = Fore.WHITE
 
@@ -396,11 +416,14 @@ def execute_command_specific(cmd, State, Tasks):
 
     elif cmd.opcode == None:
         sys_print(f"{task.status}")
+        sys_print(f"{task.period}")
+
         temp_expension = task.expand
 
         task.set_expension(True)
-        temp_state = {"display_done": True, "display_taken_care_of": True, "mark_priority": True, "priority_only": False,
-         "display_irrelevant": True, 'expand_all': True, 'verbose': True, 'prv_src_pointer': [0]}
+        temp_state = {"display_done": True, "display_taken_care_of": True, "mark_priority": True,
+                      "priority_only": False,
+                      "display_irrelevant": True, 'expand_all': True, 'verbose': True, 'prv_src_pointer': [0]}
         task.print(temp_state)
 
         task.set_expension(temp_expension)
@@ -413,6 +436,7 @@ def execute_command_specific(cmd, State, Tasks):
 def main():
     global taskfile
     State, Tasks = load_data(taskfile)
+    update_tasks(Tasks)
 
     sys_print('welcome to TODO list:')
     display_tasks(State, Tasks)
@@ -423,6 +447,7 @@ def main():
 
         display_tasks(State, Tasks)
         save_data(taskfile, State, Tasks)
+
 
 if __name__ == '__main__':
     main()
