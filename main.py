@@ -10,6 +10,10 @@ from colorama import Fore, Back, Style
 colorama.init(autoreset=True)
 taskfile = "taskfile"
 
+color_dict = {'b': Fore.LIGHTBLUE_EX, 'm': Fore.LIGHTMAGENTA_EX,
+              'c': Fore.LIGHTCYAN_EX, 'y': Fore.YELLOW,
+              'r': Fore.LIGHTRED_EX, 'w': Fore.WHITE}
+
 
 def sys_print(text):
     print(f"{Fore.RED}{text}")
@@ -216,7 +220,6 @@ class Command:
 
         return task_location
 
-
     def extract_data(self):
         if self.opcode is not None:
             self.cmd.remove(self.opcode)
@@ -325,6 +328,12 @@ def execute_command_general(cmd, State, Tasks):
     elif cmd.opcode == 'v':
         State['verbose'] = not State['verbose']
 
+    elif cmd.opcode == 'c':
+        State['display'] = False
+        sys_print('arguments for color command are:')
+        for key, val in color_dict.items():
+            print(f"{val}{key}")
+
     elif cmd.opcode == 'w' or cmd.opcode == 's':
         direction = - 1 if cmd.opcode == 'w' else 1
         State['prv_src_pointer'] = swap_tasks(Tasks, State['prv_src_pointer'], direction)
@@ -397,21 +406,8 @@ def execute_command_specific(cmd, State, Tasks):
         State['prv_src_pointer'] = swap_tasks(Tasks, cmd.task_location, direction)
 
     elif cmd.opcode == 'c':
-        if cmd.data.startswith('b'):
-            color = Fore.LIGHTBLUE_EX
-        elif cmd.data.startswith('m'):
-            color = Fore.LIGHTMAGENTA_EX
-        elif cmd.data.startswith('c'):
-            color = Fore.LIGHTCYAN_EX
-        elif cmd.data.startswith('y'):
-            color = Fore.YELLOW
-        elif cmd.data.startswith('w'):
-            color = Fore.WHITE
-        elif cmd.data.startswith('r'):
-            color = Fore.LIGHTRED_EX
-        else:
-            color = Fore.WHITE
-
+        color_code = cmd.data[0] if cmd.data[0] in color_dict.keys() else 'w'
+        color = color_dict[color_code]
         task.set_color(color)
 
     elif cmd.opcode == None:
@@ -421,10 +417,9 @@ def execute_command_specific(cmd, State, Tasks):
         temp_expension = task.expand
 
         task.set_expension(True)
-        temp_state = {"display_done": True, "display_taken_care_of": True, "mark_priority": True,
-                      "priority_only": False,
-                      "display_irrelevant": True, 'expand_all': True, 'verbose': True, 'prv_src_pointer': [0]}
-        task.print(temp_state)
+        temp = {"display_done": True, "display_taken_care_of": True, "mark_priority": True, "priority_only": False,
+                "display_irrelevant": True, 'expand_all': True, 'verbose': True, 'prv_src_pointer': [0]}
+        task.print(temp)
 
         task.set_expension(temp_expension)
         State['display'] = False
