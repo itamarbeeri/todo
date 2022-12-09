@@ -14,6 +14,8 @@ color_dict = {'b': Fore.LIGHTBLUE_EX, 'm': Fore.LIGHTMAGENTA_EX,
               'c': Fore.LIGHTCYAN_EX, 'y': Fore.YELLOW,
               'r': Fore.LIGHTRED_EX, 'w': Fore.WHITE}
 
+opcode_dict = {'d': 'done', 'g': 'taken_care_of', 'f': 'irrelevant', 'u': 'urgent', 'h': 'priority'}
+
 
 def sys_print(text):
     print(f"{Fore.RED}{text}")
@@ -21,7 +23,7 @@ def sys_print(text):
 
 def load_data(taskfile):
     if not path.isfile(taskfile):
-        State = {"display_done": True, "display_taken_care_of": True, "mark_priority": True, "priority_only": False,
+        State = {"display_done": True, "display_taken_care_of": True, "mark_priority": True, "display_priority": False,
                  "display_irrelevant": True, 'expand_all': True, 'verbose': False, 'prv_src_pointer': [0]}
         return [State, []]
 
@@ -60,7 +62,6 @@ def print_instructions(State):
                 '\nadd a subtask - type the task number followed by the new task\n' \
                 ' # d (to toggle Done/UnDone)\n' \
                 ' # e (to toggle sub items expantion display)\n' \
-                ' # ee collapse all but this\n' \
                 ' # h (to toggle highlight on a task\n' \
                 ' # c (change task color) followed by color to change color - r, g, b, c ,m, y, k, w for cyan, blue...\n' \
                 ' # r rename task \n' \
@@ -93,6 +94,7 @@ class Task:
         if self.status['done'] is True and self.status['priority'] is True and self.period['activationDay'] == 0:
             if today.month > self.done_date.month:
                 self.status['priority'] = False
+                self.status['urgent'] = False
 
         if self.period['lastActivation'].month != today.month:
             if self.period['activationDay'] >= today.day:
@@ -110,6 +112,11 @@ class Task:
             subTask.set_color(color)
         self.color = color
 
+    def set_status(self, key, val):
+        self.status[key] = val
+        for subTask in self.subTasks:
+            subTask.set_status(key, val)
+
     def set_expension(self, val):
         self.expand = val
         for subTask in self.subTasks:
@@ -126,7 +133,7 @@ class Task:
         return counter
 
     def get_display_params(self, State):
-        if State['priority_only'] is True and self.status['priority'] is False:
+        if State['display_priority'] is True and self.status['priority'] is False:
             visible = False
         elif self.status['done'] is True and State['display_done'] is False:
             visible = False
@@ -180,7 +187,7 @@ class Task:
 
         if self.expand is True:
             for i, subTask in enumerate(self.subTasks):
-                if State['priority_only'] is True:
+                if State['display_priority'] is True:
                     sub_start = start + str(i) + '.'
                 else:
                     sub_start = ''.join([' ' for _ in range(start.count(' '))]) + '    ' + str(i) + '.'
@@ -266,7 +273,7 @@ def color_scheme(State, status_key):
         fg_color = Fore.LIGHTYELLOW_EX
 
     elif status_key == 'priority':
-        if State["mark_priority"] is True and State['priority_only'] is False:
+        if State["mark_priority"] is True and State['display_priority'] is False:
             fg_color = Fore.LIGHTYELLOW_EX
 
     return bg_color, fg_color
@@ -301,26 +308,20 @@ def execute_command_general(cmd, State, Tasks):
     if cmd.opcode == 'help':
         print_instructions(State)
 
-    elif cmd.opcode == 'd':
-        State['display_done'] = not State['display_done']
+    elif cmd.opcode in opcode_dict:
+        property_name = 'display_' + opcode_dict[cmd.opcode]
+        State[property_name] = not State[property_name]
 
-    elif cmd.opcode == 'f':
-        State['display_irrelevant'] = not State['display_irrelevant']
-
-    elif cmd.opcode == 'g':
-        State['display_taken_care_of'] = not State['display_taken_care_of']
-
-    elif cmd.opcode == 'h':
-        State['priority_only'] = not State['priority_only']
-        State['expand_all'] = True
-        for task in Tasks:
-            task.set_expension(State['expand_all'])
+        if cmd.opcode == 'h':
+            State['expand_all'] = True
+            for task in Tasks:
+                task.set_expension(State['expand_all'])
 
     elif cmd.opcode == 'hh':
         State['mark_priority'] = not State['mark_priority']
 
     elif cmd.opcode == 'e':
-        State['priority_only'] = False
+        State['display_priority'] = False
         State['expand_all'] = not State['expand_all']
         for task in Tasks:
             task.set_expension(State['expand_all'])
@@ -346,46 +347,23 @@ def execute_command_general(cmd, State, Tasks):
 def execute_command_specific(cmd, State, Tasks):
     task = get_task(Tasks, cmd.task_location)
 
-    if cmd.opcode == 'rm' or cmd.opcode == 'del':
-        pointer = cmd.task_location[-1]
-        if len(cmd.task_location) == 1:
-            del Tasks[pointer]
-        else:
-            parent_task = get_task(Tasks, cmd.task_location[:-1])
-            del parent_task.subTasks[pointer]
+    if cmd.opcode in opcode_dict:
+        property_name = opcode_dict[cmd.opcode]
+        current_val = task.status[property_name]
+        task.set_status(property_name, not current_val)
 
-    elif cmd.opcode == 'd':
-        task.status['done'] = not task.status['done']
-        task.status['urgent'] = False
+    if cmd.opcode == 'd':
         task.done_date = date.today()
 
-    elif cmd.opcode == 'e':
-        State['priority_only'] = False
-        task.set_expension(not task.expand)
+    elif cmd.opcode == 'u':
+        task.status['priority'] = True if task.status['urgent'] is True else task.status['priority']
 
-    elif cmd.opcode == 'ee':
-        State['priority_only'] = False
-        State['expand_all'] = False
-        for ttask in Tasks:
-            ttask.set_expension(State['expand_all'])
-        task.set_expension(True)
+    elif cmd.opcode == 'e':
+        State['display_priority'] = False
+        task.set_expension(not task.expand)
 
     elif cmd.opcode == 'r':
         task.name = cmd.data
-
-    elif cmd.opcode == 'h':
-        task.status['priority'] = not task.status['priority']
-
-    elif cmd.opcode == 'u':
-        task.status['urgent'] = not task.status['urgent']
-        task.status['priority'] = True if task.status['urgent'] is True else task.status['priority']
-
-    elif cmd.opcode == 'g':
-        task.status['taken_care_of'] = not task.status['taken_care_of']
-        task.status['urgent'] = False
-
-    elif cmd.opcode == 'f':
-        task.status['irrelevant'] = not task.status['irrelevant']
 
     elif cmd.opcode == 'p':
         task.period = {'activationDay': cmd.data, 'lastActivation': date.today()}
@@ -405,6 +383,14 @@ def execute_command_specific(cmd, State, Tasks):
         direction = - pointer if cmd.opcode == 'ww' else length - pointer - 1
         State['prv_src_pointer'] = swap_tasks(Tasks, cmd.task_location, direction)
 
+    elif cmd.opcode == 'rm' or cmd.opcode == 'del':
+        pointer = cmd.task_location[-1]
+        if len(cmd.task_location) == 1:
+            del Tasks[pointer]
+        else:
+            parent_task = get_task(Tasks, cmd.task_location[:-1])
+            del parent_task.subTasks[pointer]
+
     elif cmd.opcode == 'c':
         color_code = cmd.data[0] if cmd.data[0] in color_dict.keys() else 'w'
         color = color_dict[color_code]
@@ -417,15 +403,16 @@ def execute_command_specific(cmd, State, Tasks):
         temp_expension = task.expand
 
         task.set_expension(True)
-        temp = {"display_done": True, "display_taken_care_of": True, "mark_priority": True, "priority_only": False,
-                "display_irrelevant": True, 'expand_all': True, 'verbose': True, 'prv_src_pointer': [0]}
+        temp = {"display_done": True, "display_taken_care_of": True, "mark_priority": True, "display_priority": False,
+                 "display_irrelevant": True, 'expand_all': True, 'verbose': False, 'prv_src_pointer': [0], 'display': True}
         task.print(temp)
 
         task.set_expension(temp_expension)
         State['display'] = False
 
     else:
-        task.add_subTask(' '.join([cmd.opcode, cmd.data]))
+        if not cmd.opcode in opcode_dict:
+            task.add_subTask(' '.join([cmd.opcode, cmd.data]))
 
 
 def main():
