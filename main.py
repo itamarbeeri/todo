@@ -97,9 +97,9 @@ class Task:
                 self.status['urgent'] = False
 
         if self.period['lastActivation'].month != today.month:
-            if self.period['activationDay'] >= today.day:
+            if int(self.period['activationDay']) >= today.day:
                 self.period['lastActivation'] = today
-                self.status['done'] = False
+                self.set_status('done', False)
 
         for subTask in self.subTasks:
             subTask.update_status()
