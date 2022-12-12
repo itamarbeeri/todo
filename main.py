@@ -79,7 +79,7 @@ def print_instructions(State):
 
 
 class Task:
-    def __init__(self, name, color=Fore.WHITE):
+    def __init__(self, name, color=color_dict['r']):
         self.name = name
         self.color = color
         self.subTasks = []
@@ -335,10 +335,6 @@ def execute_command_general(cmd, State, Tasks):
         for key, val in color_dict.items():
             print(f"{val}{key}")
 
-    elif cmd.opcode == 'w' or cmd.opcode == 's':
-        direction = - 1 if cmd.opcode == 'w' else 1
-        State['prv_src_pointer'] = swap_tasks(Tasks, State['prv_src_pointer'], direction)
-
     else:
         new_task = ' '.join([cmd.opcode, cmd.data])
         Tasks.append(Task(new_task))
@@ -368,20 +364,10 @@ def execute_command_specific(cmd, State, Tasks):
     elif cmd.opcode == 'p':
         task.period = {'activationDay': cmd.data, 'lastActivation': date.today()}
 
-    elif cmd.opcode == 'w' or cmd.opcode == 's':
-        direction = - 1 if cmd.opcode == 'w' else 1
-        State['prv_src_pointer'] = swap_tasks(Tasks, cmd.task_location, direction)
-
-    elif cmd.opcode == 'ww' or cmd.opcode == 'ss':
-        pointer = cmd.task_location[-1]
-        if len(cmd.task_location) == 1:
-            length = len(Tasks)
-        else:
-            parent_task = get_task(Tasks, cmd.task_location[:-1])
-            length = len(parent_task.subTasks)
-
-        direction = - pointer if cmd.opcode == 'ww' else length - pointer - 1
-        State['prv_src_pointer'] = swap_tasks(Tasks, cmd.task_location, direction)
+    elif cmd.opcode.startswith('w') or cmd.opcode.startswith('s'):
+        direction = 1 if cmd.opcode.startswith('s') else -1
+        dst = cmd.task_location[-1] + direction * len(cmd.opcode)
+        Tasks.insert(dst, Tasks.pop(Tasks.index(task)))
 
     elif cmd.opcode == 'rm' or cmd.opcode == 'del':
         pointer = cmd.task_location[-1]
@@ -397,18 +383,10 @@ def execute_command_specific(cmd, State, Tasks):
         task.set_color(color)
 
     elif cmd.opcode == None:
-        sys_print(f"{task.status}")
-        sys_print(f"{task.period}")
-
-        temp_expension = task.expand
-
+        State['display_priority'] = False
+        for Task in Tasks:
+            Task.set_expension(False)
         task.set_expension(True)
-        temp = {"display_done": True, "display_taken_care_of": True, "mark_priority": True, "display_priority": False,
-                 "display_irrelevant": True, 'expand_all': True, 'verbose': False, 'prv_src_pointer': [0], 'display': True}
-        task.print(temp)
-
-        task.set_expension(temp_expension)
-        State['display'] = False
 
     else:
         if not cmd.opcode in opcode_dict:
