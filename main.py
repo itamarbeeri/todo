@@ -59,7 +59,7 @@ def print_instructions(State):
                 'h to mark/unmark all highligthed tasks\n' \
                 'hh to hide/display all highligthed tasks\n' \
                 'Example: "d" -> display/dont display done tasks.\n' \
-                '\nadd a subtask - type the task number followed by the new task\n' \
+                'add a subtask - type the task number followed by the new task\n' \
                 ' # d (to toggle Done/UnDone)\n' \
                 ' # e (to toggle sub items expantion display)\n' \
                 ' # h (to toggle highlight on a task\n' \
@@ -68,8 +68,7 @@ def print_instructions(State):
                 ' # g to toggle a marker\n' \
                 ' # f to toggle red mark and hide\n' \
                 ' # p dayofthemonth to set task periodically,\n' \
-                ' # w/s to move task up or down.\n' \
-                ' # ww/ss to move task all the way up or down.\n' \
+                ' # w/s to move task up or down (as the number of characters).\n' \
                 ' # rm/del to remove task (delete).\n' \
                 'Example: "6 2 c m" -> color subtask 2 in task 6 in magenta.\n' \
                 '..\n' \
@@ -244,6 +243,8 @@ class Command:
         if self.next_raw_cmd is not None:
             cmd = Command(self.next_raw_cmd)
             cmd.execute(State, Tasks)
+
+        State['prv_src_pointer'] = self.task_location
 
 
 def display_tasks(State, Tasks):
