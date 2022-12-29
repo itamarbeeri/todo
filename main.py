@@ -133,11 +133,11 @@ class Task:
     def get_display_params(self, State):
         if State['display_priority'] is True and self.status['priority'] is False:
             visible = False
+        elif self.status['irrelevant'] is True and State['display_irrelevant'] is False:
+            visible = False
         elif self.status['done'] is True and State['display_done'] is False:
             visible = False
         elif self.status['taken_care_of'] is True and State['display_taken_care_of'] is False:
-            visible = False
-        elif self.status['irrelevant'] is True and State['display_irrelevant'] is False:
             visible = False
         else:
             visible = True
@@ -344,10 +344,11 @@ def execute_command_specific(cmd, State, Tasks):
     elif cmd.opcode == 'p':
         task.period = {'activationDay': cmd.data, 'lastActivation': date.today()}
 
-    elif cmd.opcode.startswith('w') or cmd.opcode.startswith('s'):
+    elif all(chr == 'w' for chr in cmd.opcode) or all(chr == 's' for chr in cmd.opcode):
         direction = 1 if cmd.opcode.startswith('s') else -1
         dst = cmd.task_location[-1] + direction * len(cmd.opcode)
-        Tasks.insert(dst, Tasks.pop(Tasks.index(task)))
+        parent_task_list = Tasks if len(cmd.task_location) == 1 else get_task(Tasks, cmd.task_location[:-1]).subTasks
+        parent_task_list.insert(dst, parent_task_list.pop(parent_task_list.index(task)))
 
     elif cmd.opcode == 'rm' or cmd.opcode == 'del':
         pointer = cmd.task_location[-1]
