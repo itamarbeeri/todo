@@ -10,9 +10,12 @@ from colorama import Fore, Back, Style
 colorama.init(autoreset=True)
 taskfile = "taskfile"
 
-color_dict = {'b': Fore.LIGHTBLUE_EX, 'm': Fore.LIGHTMAGENTA_EX,
-              'c': Fore.LIGHTCYAN_EX, 'y': Fore.YELLOW,
-              'r': Fore.LIGHTRED_EX, 'w': Fore.WHITE}
+color_dict = {'b': Fore.LIGHTBLUE_EX, 'bb': Fore.BLUE,
+              'm': Fore.LIGHTMAGENTA_EX, 'mm': Fore.MAGENTA,
+              'c': Fore.LIGHTCYAN_EX, 'cc': Fore.CYAN,
+              'y': Fore.YELLOW, 'yy': Fore.YELLOW,
+              'r': Fore.LIGHTRED_EX, 'rr': Fore.LIGHTRED_EX,
+              'w': Fore.WHITE}
 
 opcode_dict = {'d': 'done', 'g': 'taken_care_of', 'f': 'irrelevant', 'u': 'urgent', 'h': 'priority'}
 
@@ -319,6 +322,8 @@ def execute_command_specific(cmd, State, Tasks):
 
     if cmd.opcode == None:
         State['display_priority'] = False
+        sys_print(task.status)
+        sys_print(task.period)
         for Task in Tasks:
             Task.set_expension(False)
         task.set_expension(True)
@@ -331,8 +336,8 @@ def execute_command_specific(cmd, State, Tasks):
         if cmd.opcode == 'd':
             task.done_date = date.today()
 
-    elif cmd.opcode == 'u':
-        task.status['priority'] = True if task.status['urgent'] is True else task.status['priority']
+        if cmd.opcode == 'u':
+            task.status['priority'] = True if task.status['urgent'] is True else task.status['priority']
 
     elif cmd.opcode == 'e':
         State['display_priority'] = False
@@ -359,7 +364,7 @@ def execute_command_specific(cmd, State, Tasks):
             del parent_task.subTasks[pointer]
 
     elif cmd.opcode == 'c':
-        color_code = cmd.data[0] if cmd.data[0] in color_dict.keys() else 'w'
+        color_code = cmd.data if cmd.data in color_dict.keys() else 'w'
         color = color_dict[color_code]
         task.set_color(color)
 
