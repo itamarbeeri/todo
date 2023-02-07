@@ -118,6 +118,9 @@ class Task:
         for subTask in self.subTasks:
             subTask.set_status(key, val)
 
+        if key == 'done' and val == True:
+            self.done_date = date.today()
+
     def set_expension(self, val):
         self.expand = val
         for subTask in self.subTasks:
@@ -332,9 +335,6 @@ def execute_command_specific(cmd, State, Tasks):
         property_name = opcode_dict[cmd.opcode]
         current_val = task.status[property_name]
         task.set_status(property_name, not current_val)
-
-        if cmd.opcode == 'd':
-            task.done_date = date.today()
 
         if cmd.opcode == 'u':
             task.status['priority'] = True if task.status['urgent'] is True else task.status['priority']
