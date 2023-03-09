@@ -113,10 +113,12 @@ class Task:
             subTask.set_color(color)
         self.color = color
 
-    def set_status(self, key, val):
+    def set_status(self, key, val, propogate=False):
         self.status[key] = val
-        for subTask in self.subTasks:
-            subTask.set_status(key, val)
+
+        if propogate:
+            for subTask in self.subTasks:
+                subTask.set_status(key, val, propogate)
 
         if key == 'done' and val == True:
             self.done_date = date.today()
@@ -338,6 +340,10 @@ def execute_command_specific(cmd, State, Tasks):
 
         if cmd.opcode == 'u':
             task.status['priority'] = True if task.status['urgent'] is True else task.status['priority']
+
+    elif cmd.opcode == 'dd':
+        current_val = task.status['done']
+        task.set_status('done', not current_val, propogate=True)
 
     elif cmd.opcode == 'e':
         State['display_priority'] = False
