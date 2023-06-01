@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import pickle
+import sys
 from datetime import date
 from os import path
 
@@ -290,7 +291,10 @@ def get_task(Tasks, task_pointer_list):
     return task
 
 def execute_command_general(cmd, State, Tasks):
-    if cmd.opcode == 'help':
+    if cmd.opcode == 'quit' or cmd.opcode == 'exit':
+        sys.exit()
+
+    elif cmd.opcode == 'help':
         print_instructions(State)
 
     elif cmd.opcode in opcode_dict:
@@ -388,11 +392,19 @@ def main():
     display_tasks(State, Tasks)
 
     while True:
-        cmd = Command(input())
-        cmd.execute(State, Tasks)
+        try:
+            cmd = Command(input())
+            cmd.execute(State, Tasks)
 
-        display_tasks(State, Tasks)
-        save_data(taskfile, State, Tasks)
+            display_tasks(State, Tasks)
+            save_data(taskfile, State, Tasks)
+
+        except SystemExit:
+            sys_print('good bye.')
+            sys.exit()
+
+        except:
+            sys_print('ERROR! probably illegal command')
 
 
 if __name__ == '__main__':
