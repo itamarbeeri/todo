@@ -28,7 +28,8 @@ def sys_print(text):
 def load_data(taskfile):
     if not path.isfile(taskfile):
         State = {"display_done": True, "display_taken_care_of": True, "mark_priority": True, "display_priority": False,
-                 "display_irrelevant": True, 'expand_all': True, 'verbose': False, 'prv_src_pointer': [0]}
+                 "display_irrelevant": True, 'expand_all': True, 'verbose': False, 'prv_src_pointer': [0], 'display': False,
+                 "constant_parent_task": []}
         return [State, []]
 
     with open(taskfile, "rb") as fp:
@@ -202,10 +203,10 @@ class Task:
 
 
 class Command:
-    def __init__(self, raw_cmd):
+    def __init__(self, raw_cmd, State):
         self.cmd, self.next_raw_cmd = self.commad_separator(raw_cmd)
         self.opcode = self.extract_opcode()
-        self.task_location = self.extract_task_location()
+        self.task_location = self.extract_task_location(State)
         self.data = self.extract_data()
 
     def commad_separator(self, raw_cmd):
@@ -218,8 +219,8 @@ class Command:
     def extract_opcode(self):
         return next((word for word in self.cmd if not word.isnumeric()), None)
 
-    def extract_task_location(self):
-        task_location = list()
+    def extract_task_location(self, State):
+        task_location = State['constant_parent_task'].copy()
         root_task = next((word for word in self.cmd if word.isnumeric()), None)
         if root_task is None:
             return task_location
@@ -238,11 +239,13 @@ class Command:
         if self.opcode is not None:
             self.cmd.remove(self.opcode)
         for i in self.task_location:
-            self.cmd.remove(str(i))
+            if i in self.cmd:
+                self.cmd.remove(str(i))
 
         return ' '.join(self.cmd)
 
     def execute(self, State, Tasks):
+        breakpoint()
         if len(self.task_location) == 0:
             execute_command_general(self, State, Tasks)
         else:
@@ -321,6 +324,9 @@ def execute_command_general(cmd, State, Tasks):
         for key, val in color_dict.items():
             print(f"{val}{key}")
 
+    elif cmd.opcode == 'const':
+        State['constant_parent_task'] = list()
+
     else:
         new_task = ' '.join([cmd.opcode, cmd.data])
         Tasks.append(Task(new_task))
@@ -330,6 +336,7 @@ def execute_command_specific(cmd, State, Tasks):
     task = get_task(Tasks, cmd.task_location)
 
     if cmd.opcode == None:
+        State['expand_all'] = False
         State['display_priority'] = False
         sys_print(task.status)
         sys_print(task.period)
@@ -378,6 +385,9 @@ def execute_command_specific(cmd, State, Tasks):
         color = color_dict[color_code]
         task.set_color(color)
 
+    elif cmd.opcode == 'const':
+        State['constant_parent_task'] = cmd.data
+
     else:
         if not cmd.opcode in opcode_dict:
             task.add_subTask(' '.join([cmd.opcode, cmd.data]))
@@ -393,7 +403,7 @@ def main():
 
     while True:
         try:
-            cmd = Command(input())
+            cmd = Command(input(), State)
             cmd.execute(State, Tasks)
 
             display_tasks(State, Tasks)
@@ -404,8 +414,10 @@ def main():
             sys.exit()
 
         except:
-            sys_print('ERROR! probably illegal command')
+            sys_print('error.')
 
 
 if __name__ == '__main__':
     main()
+
+# pyinstaller --onefile main.py
