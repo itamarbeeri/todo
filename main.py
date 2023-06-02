@@ -16,7 +16,8 @@ color_dict = {'b': Fore.LIGHTBLUE_EX, 'bb': Fore.BLUE,
               'c': Fore.LIGHTCYAN_EX, 'cc': Fore.CYAN,
               'y': Fore.YELLOW, 'yy': Fore.YELLOW,
               'r': Fore.LIGHTRED_EX, 'rr': Fore.LIGHTRED_EX,
-              'w': Fore.WHITE}
+              'g': Fore.LIGHTGREEN_EX, 'gg': Fore.GREEN,
+              'w': Fore.LIGHTWHITE_EX, 'ww': Fore.WHITE}
 
 opcode_dict = {'d': 'done', 'g': 'taken_care_of', 'f': 'irrelevant', 'u': 'urgent', 'h': 'priority'}
 
@@ -236,16 +237,17 @@ class Command:
         return task_location
 
     def extract_data(self):
-        if self.opcode is not None:
-            self.cmd.remove(self.opcode)
-        for i in self.task_location:
-            if i in self.cmd:
-                self.cmd.remove(str(i))
+        cmd = self.cmd.copy()
 
-        return ' '.join(self.cmd)
+        if self.opcode:
+            cmd.remove(self.opcode)
+        for i in self.task_location:
+            if str(i) in cmd:
+                cmd.remove(str(i))
+
+        return ' '.join(cmd)
 
     def execute(self, State, Tasks):
-        breakpoint()
         if len(self.task_location) == 0:
             execute_command_general(self, State, Tasks)
         else:
@@ -273,16 +275,16 @@ def color_scheme(status_key):
     fg_color = ''
 
     if status_key == 'done':
-        fg_color = Fore.LIGHTGREEN_EX
+        fg_color = Fore.WHITE + Style.DIM
 
     elif status_key == "taken_care_of":
-        fg_color = Fore.GREEN
+        fg_color = Fore.WHITE + Style.DIM
 
     elif status_key == "irrelevant":
         fg_color = Fore.RED + Style.DIM
 
     elif status_key == 'urgent':
-        fg_color = Fore.LIGHTYELLOW_EX
+        bg_color = Back.LIGHTYELLOW_EX
 
     return bg_color, fg_color
 
