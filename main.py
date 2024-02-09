@@ -11,34 +11,21 @@ from colorama import Fore, Back, Style
 colorama.init(autoreset=True)
 taskfile = "taskfile"
 
-def rgb_color(rgb):
-    r, g, b = rgb
-    return f'\033[38;2;{r};{g};{b}m'
+
+color_dict = {'b': Fore.LIGHTBLUE_EX, 'bb': Fore.BLUE,
+              'm': Fore.LIGHTMAGENTA_EX, 'mm': Fore.MAGENTA,
+              'c': Fore.LIGHTCYAN_EX, 'cc': Fore.CYAN,
+              'y': Fore.YELLOW, 'yy': Fore.YELLOW,
+              'r': Fore.LIGHTRED_EX, 'rr': Fore.LIGHTRED_EX,
+              'g': Fore.LIGHTGREEN_EX, 'gg': Fore.GREEN,
+              'w': Fore.LIGHTWHITE_EX, 'ww': Fore.WHITE}
+
 
 opcode_dict = {'d': 'done',
                'g': 'taken_care_of',
                'f': 'irrelevant',
                'u': 'urgent',
                'h': 'priority'}
-
-color_dict_raw = {'r': (255, 0, 0), 'rr': (255, 89, 89),
-                  'g': (25, 255, 25), 'gg': (100, 255, 100),
-                  'b': (0, 0, 255), 'bb': (89, 89, 255),
-                  'c': (0, 255, 255), 'cc': (89, 255, 255),
-                  'm': (255, 0, 255), 'mm': (255, 89, 255),
-                  'y': (255, 255, 0), 'yy': (255, 255, 89),
-                  'o': (255, 125, 0), 'oo': (250, 160, 10),
-                  'w': (255, 255, 255), 'ww': (230, 230, 230)}
-
-system_colors_raw = {'done': (0, 255, 0), 'taken_care_of': (0, 200, 0)}
-
-color_dict = dict()
-for color_name, rbg in color_dict_raw.items():
-    color_dict[color_name] = rgb_color(rbg)
-
-system_colors = dict()
-for color_name, rbg in system_colors_raw.items():
-    system_colors[color_name] = rgb_color(rbg)
 
 
 def sys_print(text):
@@ -299,16 +286,16 @@ def color_scheme(status_key):
     fg_color = ''
 
     if status_key == 'done':
-        fg_color = system_colors['done']
+        fg_color = Fore.WHITE + Style.DIM
 
     elif status_key == "taken_care_of":
-        fg_color = system_colors['taken_care_of']
+        fg_color = Fore.WHITE + Style.DIM
 
     elif status_key == "irrelevant":
-        bg_color = '\x1b[9m' # strikethrough
+        fg_color = Fore.RED + Style.DIM
 
     elif status_key == 'urgent':
-        bg_color = '\033[1m' + '\033[3m' + '\033[4m' #bold, italic, underline
+        bg_color = Back.LIGHTYELLOW_EX
 
     return bg_color, fg_color
 
