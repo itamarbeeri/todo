@@ -15,9 +15,9 @@ taskfile = "taskfile"
 color_dict = {'b': Fore.LIGHTBLUE_EX, 'bb': Fore.BLUE,
               'm': Fore.LIGHTMAGENTA_EX, 'mm': Fore.MAGENTA,
               'c': Fore.LIGHTCYAN_EX, 'cc': Fore.CYAN,
-              'y': Fore.YELLOW, 'yy': Fore.YELLOW,
+              'y': Fore.LIGHTYELLOW_EX, 'yy': Fore.YELLOW,
               'r': Fore.LIGHTRED_EX, 'rr': Fore.LIGHTRED_EX,
-              'g': Fore.LIGHTGREEN_EX, 'gg': Fore.GREEN,
+              'g': Fore.GREEN, 'gg': Fore.GREEN,
               'w': Fore.LIGHTWHITE_EX, 'ww': Fore.WHITE}
 
 
@@ -62,6 +62,7 @@ def print_instructions(State):
     help_text = 'Welcome to TODO list.\n' \
                 f'State is: {State}\n' \
                 '..\n' \
+                'GENERAL COMMANDS:\n' \
                 'To create a new task - type the task name.\n' \
                 'e to expand/collapse all\n' \
                 'd to hide/display all done tasks\n' \
@@ -70,26 +71,27 @@ def print_instructions(State):
                 'v to hide/display date log\n' \
                 'h to display only highligthed tasks\n' \
                 'Example: "d" -> display/dont display done tasks.\n' \
-                '\nadd a subtask - type the task number followed by the new task\n' \
-                ' # d (to toggle Done/UnDone)\n' \
-                ' # e (to toggle sub items expantion display)\n' \
-                ' # h (to toggle highlight on a task\n' \
-                ' # c (change task color) followed by color to change color - r, g, b, c ,m, y, k, w for cyan, blue...\n' \
-                ' # r rename task \n' \
-                ' # g to toggle a marker\n' \
-                ' # f to toggle red mark and hide\n' \
-                ' # p dayofthemonth to set task periodically,\n' \
-                ' # w/s to move task up or down (as the number of characters).\n' \
-                ' # rm/del to remove task (delete).\n' \
-                'Example: "6 2 c m" -> color subtask 2 in task 6 in magenta.\n' \
+                '\nSPECIFIC COMMANDS (for command number #):\n' \
+                'To add a subtask - type the task number followed by the new subtask\n' \
+                '# d (to toggle Done/UnDone)\n' \
+                '# e (to toggle sub items expantion display)\n' \
+                '# h (to toggle highlight on a task\n' \
+                '# c (change task color) followed by color to change color - r, g, b, c ,m, y, k, w for cyan, blue...\n' \
+                '# r rename task \n' \
+                '# g to toggle a marker\n' \
+                '# f to toggle red mark and hide\n' \
+                '# p dayofthemonth to set task periodically,\n' \
+                '# w/s to move task up or down (as the number of characters).\n' \
+                '# rm/del to remove task (delete).\n' \
+                'Example: "6 2 c m" -> color subtask 2 of task 6 in magenta.\n' \
                 '..\n'
     sys_print(help_text)
 
     sys_print('optional colors are:')
     for color_letter, color_code in color_dict.items():
-        print(color_code + color_letter)
+        print(color_code + color_letter, end=', ')
 
-    sys_print('Good luck! press enter to continue.\n')
+    sys_print('\nGood luck! press enter to continue.\n')
     input()
 
 
@@ -286,16 +288,16 @@ def color_scheme(status_key):
     fg_color = ''
 
     if status_key == 'done':
-        fg_color = Fore.WHITE + Style.DIM
+        fg_color = Fore.LIGHTGREEN_EX + Style.BRIGHT
 
     elif status_key == "taken_care_of":
-        fg_color = Fore.WHITE + Style.DIM
+        fg_color = Fore.LIGHTGREEN_EX + Style.DIM
 
     elif status_key == "irrelevant":
-        fg_color = Fore.RED + Style.DIM
+        bg_color = Fore.RED + Style.DIM
 
     elif status_key == 'urgent':
-        bg_color = Back.LIGHTYELLOW_EX
+        fg_color = Fore.RED
 
     return bg_color, fg_color
 
