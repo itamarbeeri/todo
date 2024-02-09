@@ -11,15 +11,34 @@ from colorama import Fore, Back, Style
 colorama.init(autoreset=True)
 taskfile = "taskfile"
 
-color_dict = {'b': Fore.LIGHTBLUE_EX, 'bb': Fore.BLUE,
-              'm': Fore.LIGHTMAGENTA_EX, 'mm': Fore.MAGENTA,
-              'c': Fore.LIGHTCYAN_EX, 'cc': Fore.CYAN,
-              'y': Fore.YELLOW, 'yy': Fore.YELLOW,
-              'r': Fore.LIGHTRED_EX, 'rr': Fore.LIGHTRED_EX,
-              'g': Fore.LIGHTGREEN_EX, 'gg': Fore.GREEN,
-              'w': Fore.LIGHTWHITE_EX, 'ww': Fore.WHITE}
+def rgb_color(rgb):
+    r, g, b = rgb
+    return f'\033[38;2;{r};{g};{b}m'
 
-opcode_dict = {'d': 'done', 'g': 'taken_care_of', 'f': 'irrelevant', 'u': 'urgent', 'h': 'priority'}
+opcode_dict = {'d': 'done',
+               'g': 'taken_care_of',
+               'f': 'irrelevant',
+               'u': 'urgent',
+               'h': 'priority'}
+
+color_dict_raw = {'r': (255, 0, 0), 'rr': (255, 89, 89),
+                  'g': (25, 255, 25), 'gg': (100, 255, 100),
+                  'b': (0, 0, 255), 'bb': (89, 89, 255),
+                  'c': (0, 255, 255), 'cc': (89, 255, 255),
+                  'm': (255, 0, 255), 'mm': (255, 89, 255),
+                  'y': (255, 255, 0), 'yy': (255, 255, 89),
+                  'o': (255, 125, 0), 'oo': (250, 160, 10),
+                  'w': (255, 255, 255), 'ww': (230, 230, 230)}
+
+system_colors_raw = {'done': (0, 255, 0), 'taken_care_of': (0, 200, 0)}
+
+color_dict = dict()
+for color_name, rbg in color_dict_raw.items():
+    color_dict[color_name] = rgb_color(rbg)
+
+system_colors = dict()
+for color_name, rbg in system_colors_raw.items():
+    system_colors[color_name] = rgb_color(rbg)
 
 
 def sys_print(text):
@@ -31,7 +50,7 @@ def load_data(taskfile):
         State = {"display_done": True, "display_taken_care_of": True, "mark_priority": True, "display_priority": False,
                  "display_irrelevant": True, 'expand_all': True, 'verbose': False, 'prv_src_pointer': [0], 'display': False,
                  "constant_parent_task": []}
-        return [State, []]
+        return State, []
 
     with open(taskfile, "rb") as fp:
         data = pickle.load(fp)
@@ -53,18 +72,18 @@ def update_tasks(Tasks):
 
 
 def print_instructions(State):
-    help_text = f'Welcome to TODO list.\n' \
+    help_text = 'Welcome to TODO list.\n' \
                 f'State is: {State}\n' \
-                f'..\n' \
-                f'To create a new task - type the task name.\n' \
-                f'e to expand/collapse all\n' \
+                '..\n' \
+                'To create a new task - type the task name.\n' \
+                'e to expand/collapse all\n' \
                 'd to hide/display all done tasks\n' \
                 'f to hide/display all irrelevant tasks\n' \
                 'g to hide/display all taken_care_of tasks\n' \
                 'v to hide/display date log\n' \
-                'h to hide/display all highligthed tasks\n' \
+                'h to display only highligthed tasks\n' \
                 'Example: "d" -> display/dont display done tasks.\n' \
-                'add a subtask - type the task number followed by the new task\n' \
+                '\nadd a subtask - type the task number followed by the new task\n' \
                 ' # d (to toggle Done/UnDone)\n' \
                 ' # e (to toggle sub items expantion display)\n' \
                 ' # h (to toggle highlight on a task\n' \
@@ -76,9 +95,14 @@ def print_instructions(State):
                 ' # w/s to move task up or down (as the number of characters).\n' \
                 ' # rm/del to remove task (delete).\n' \
                 'Example: "6 2 c m" -> color subtask 2 in task 6 in magenta.\n' \
-                '..\n' \
-                'Good luck! press enter to continue.\n'
+                '..\n'
     sys_print(help_text)
+
+    sys_print('optional colors are:')
+    for color_letter, color_code in color_dict.items():
+        print(color_code + color_letter)
+
+    sys_print('Good luck! press enter to continue.\n')
     input()
 
 
@@ -95,15 +119,15 @@ class Task:
 
     def update_status(self):
         today = date.today()
-        if self.status['done'] is True and self.status['priority'] is True and self.period['activationDay'] == 0:
-            if today.month > self.done_date.month:
-                self.status['priority'] = False
-                self.status['urgent'] = False
+        # if self.status['done'] and self.status['priority'] and self.period['activationDay'] == 0:
+        #     if today.month > self.done_date.month:
+        #         self.status['priority'] = False
+        #         self.status['urgent'] = False
 
-        if self.period['lastActivation'].month != today.month:
-            if int(self.period['activationDay']) <= today.day:
-                self.period['lastActivation'] = today
-                self.set_status('done', False, propogate=True)
+        # if self.period['lastActivation'].month != today.month:
+        #     if int(self.period['activationDay']) <= today.day:
+        #         self.period['lastActivation'] = today
+        #         self.set_status('done', False, propogate=False)
 
         for subTask in self.subTasks:
             subTask.update_status()
@@ -275,16 +299,16 @@ def color_scheme(status_key):
     fg_color = ''
 
     if status_key == 'done':
-        fg_color = Fore.WHITE + Style.DIM
+        fg_color = system_colors['done']
 
     elif status_key == "taken_care_of":
-        fg_color = Fore.WHITE + Style.DIM
+        fg_color = system_colors['taken_care_of']
 
     elif status_key == "irrelevant":
-        fg_color = Fore.RED + Style.DIM
+        bg_color = '\x1b[9m' # strikethrough
 
     elif status_key == 'urgent':
-        bg_color = Back.LIGHTYELLOW_EX
+        bg_color = '\033[1m' + '\033[3m' + '\033[4m' #bold, italic, underline
 
     return bg_color, fg_color
 
