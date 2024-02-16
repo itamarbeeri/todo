@@ -15,8 +15,8 @@ taskfile = "taskfile"
 color_dict = {'b': Fore.LIGHTBLUE_EX, 'bb': Fore.BLUE,
               'm': Fore.LIGHTMAGENTA_EX, 'mm': Fore.MAGENTA,
               'c': Fore.LIGHTCYAN_EX, 'cc': Fore.CYAN,
-              'y': Fore.LIGHTYELLOW_EX, 'yy': Fore.YELLOW,
-              'r': Fore.LIGHTRED_EX, 'rr': Fore.LIGHTRED_EX,
+              'y': Fore.YELLOW, 'yy': Fore.YELLOW,
+              'r': Fore.LIGHTRED_EX, 'rr': Fore.RED,
               'g': Fore.GREEN, 'gg': Fore.GREEN,
               'w': Fore.LIGHTWHITE_EX, 'ww': Fore.WHITE}
 
@@ -29,14 +29,14 @@ opcode_dict = {'d': 'done',
 
 
 def sys_print(text):
-    print(f"{Fore.RED}{text}")
+    print(f"{Fore.LIGHTYELLOW_EX}{text}")
 
 
 def load_data(taskfile):
     if not path.isfile(taskfile):
         State = {"display_done": True, "display_taken_care_of": True, "mark_priority": True, "display_priority": False,
                  "display_irrelevant": True, 'expand_all': True, 'verbose': False, 'prv_src_pointer': [0], 'display': False,
-                 "constant_parent_task": []}
+                 "display_urgent": False, "constant_parent_task": []}
         return State, []
 
     with open(taskfile, "rb") as fp:
@@ -57,12 +57,19 @@ def update_tasks(Tasks):
     for task in Tasks:
         task.update_status()
 
+def debug(State, Tasks):
+    breakpoint()
+
+def print_state(State):
+    sys_print(f'State is: \n')
+    for key, value in State.items():
+        sys_print(f'{key}: {value}')
+    sys_print('\npress enter to continue.\n')
+    input()
 
 def print_instructions(State):
     help_text = 'Welcome to TODO list.\n' \
-                f'State is: {State}\n' \
-                '..\n' \
-                'GENERAL COMMANDS:\n' \
+                '\nGENERAL COMMANDS:\n' \
                 'To create a new task - type the task name.\n' \
                 'e to expand/collapse all\n' \
                 'd to hide/display all done tasks\n' \
@@ -155,13 +162,15 @@ class Task:
         return counter
 
     def get_display_params(self, State):
-        if State['display_priority'] is True and self.status['priority'] is False:
+        if State['display_urgent'] is True and self.status['urgent'] is False:
             visible = False
-        elif self.status['irrelevant'] is True and State['display_irrelevant'] is False:
+        elif State['display_priority'] is True and self.status['priority'] is False:
             visible = False
-        elif self.status['done'] is True and State['display_done'] is False:
+        elif State['display_irrelevant'] is False and self.status['irrelevant'] is True:
             visible = False
-        elif self.status['taken_care_of'] is True and State['display_taken_care_of'] is False:
+        elif State['display_done'] is False and self.status['done'] is True:
+            visible = False
+        elif State['display_taken_care_of'] is False and self.status['taken_care_of'] is True:
             visible = False
         else:
             visible = True
@@ -172,7 +181,7 @@ class Task:
             if val is True:
                 bg_color, fg_color = color_scheme(key)
                 break
-        fg_color = self.color if fg_color == '' else fg_color
+        fg_color = self.color if fg_color == '' or State['display_urgent'] is True else fg_color
 
         return fg_color, bg_color, visible
 
@@ -209,7 +218,7 @@ class Task:
 
         if self.expand is True:
             for i, subTask in enumerate(self.subTasks):
-                if State['display_priority'] is True:
+                if State['display_urgent'] or State['display_priority']:
                     sub_start = start + str(i) + '.'
                 else:
                     sub_start = ''.join([' ' for _ in range(start.count(' '))]) + '    ' + str(i) + '.'
@@ -297,7 +306,7 @@ def color_scheme(status_key):
         bg_color = Fore.RED + Style.DIM
 
     elif status_key == 'urgent':
-        fg_color = Fore.RED
+        fg_color = Fore.LIGHTYELLOW_EX
 
     return bg_color, fg_color
 
@@ -308,9 +317,16 @@ def get_task(Tasks, task_pointer_list):
         task = task.subTasks[num]
     return task
 
+
 def execute_command_general(cmd, State, Tasks):
     if cmd.opcode == 'quit' or cmd.opcode == 'exit':
         sys.exit()
+
+    elif cmd.opcode == 'debug':
+        debug(State, Tasks)
+
+    elif cmd.opcode == 'state':
+        print_state(State)
 
     elif cmd.opcode == 'help':
         print_instructions(State)
@@ -319,13 +335,15 @@ def execute_command_general(cmd, State, Tasks):
         property_name = 'display_' + opcode_dict[cmd.opcode]
         State[property_name] = not State[property_name]
 
-        if cmd.opcode == 'h':
+        if cmd.opcode == 'u' or cmd.opcode == 'h':
+            State['display_urgent'] = False if cmd.opcode == 'h' else State['display_urgent']
+            State['display_priority'] = False if cmd.opcode == 'u' else State['display_priority']
             State['expand_all'] = True
             for task in Tasks:
                 task.set_expension(State['expand_all'])
 
     elif cmd.opcode == 'e':
-        State['display_priority'] = False
+        State['display_urgent'], State['display_priority'] = False, False
         State['expand_all'] = not State['expand_all']
         for task in Tasks:
             task.set_expension(State['expand_all'])
@@ -353,6 +371,7 @@ def execute_command_specific(cmd, State, Tasks):
     if cmd.opcode == None:
         State['expand_all'] = False
         State['display_priority'] = False
+        State['display_urgent'] = False
         sys_print(task.status)
         sys_print(task.period)
         for Task in Tasks:
@@ -372,7 +391,7 @@ def execute_command_specific(cmd, State, Tasks):
         task.set_status('done', not current_val, propogate=True)
 
     elif cmd.opcode == 'e':
-        State['display_priority'] = False
+        State['display_urgent'], State['display_priority'] = False, False
         task.set_expension(not task.expand)
 
     elif cmd.opcode == 'r':
@@ -429,6 +448,7 @@ def main():
             sys.exit()
 
         except:
+            State["display_urgent"] = False
             sys_print('error.')
 
 
