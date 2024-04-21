@@ -118,15 +118,16 @@ class Task:
 
     def update_status(self):
         today = date.today()
-        # if self.status['done'] and self.status['priority'] and self.period['activationDay'] == 0:
-        #     if today.month > self.done_date.month:
-        #         self.status['priority'] = False
-        #         self.status['urgent'] = False
-
-        # if self.period['lastActivation'].month != today.month:
-        #     if int(self.period['activationDay']) <= today.day:
-        #         self.period['lastActivation'] = today
-        #         self.set_status('done', False, propogate=False)
+        if self.period['activationDay'] == 0:
+            if self.status['done'] and self.status['priority']:
+                if today.month > self.done_date.month:
+                    self.status['priority'] = False
+                    self.status['urgent'] = False
+        else:
+            if self.period['lastActivation'].month != today.month:
+                if int(self.period['activationDay']) <= today.day or self.period['lastActivation'].month + 1 < today.month:
+                    self.period['lastActivation'] = today
+                    self.set_status('done', False, propogate=False)
 
         for subTask in self.subTasks:
             subTask.update_status()
