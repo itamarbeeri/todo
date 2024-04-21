@@ -70,26 +70,29 @@ def print_state(State):
 def print_instructions(State):
     help_text = 'Welcome to TODO list.\n' \
                 '\nGENERAL COMMANDS:\n' \
-                'To create a new task - type the task name.\n' \
-                'e to expand/collapse all\n' \
-                'd to hide/display all done tasks\n' \
-                'f to hide/display all irrelevant tasks\n' \
-                'g to hide/display all taken_care_of tasks\n' \
-                'v to hide/display date log\n' \
-                'h to display only highligthed tasks\n' \
+                '   To create a new task - type the task name.\n' \
+                '   e to expand/collapse all\n' \
+                '   d to hide/display all done tasks\n' \
+                '   f to hide/display all irrelevant tasks\n' \
+                '   g to hide/display all taken_care_of tasks\n' \
+                '   v to hide/display date log\n' \
+                '   h to display only high-importance tasks\n' \
+                '   u to display only urgent tasks\n' \
                 'Example: "d" -> display/dont display done tasks.\n' \
+                '\n' \
                 '\nSPECIFIC COMMANDS (for command number #):\n' \
-                'To add a subtask - type the task number followed by the new subtask\n' \
-                '# d (to toggle Done/UnDone)\n' \
-                '# e (to toggle sub items expantion display)\n' \
-                '# h (to toggle highlight on a task\n' \
-                '# c (change task color) followed by color to change color - r, g, b, c ,m, y, k, w for cyan, blue...\n' \
-                '# r rename task \n' \
-                '# g to toggle a marker\n' \
-                '# f to toggle red mark and hide\n' \
-                '# p dayofthemonth to set task periodically,\n' \
-                '# w/s to move task up or down (as the number of characters).\n' \
-                '# rm/del to remove task (delete).\n' \
+                '   To add a subtask - type the task number followed by the new subtask\n' \
+                '   # d to toggle Done/UnDone\n' \
+                '   # e to toggle sub items expantion display\n' \
+                '   # h to toggle high-importance state on a task\n' \
+                '   # u to toggle urgent state on a task\n' \
+                '   # c to change task color followed by color to change color - r, g, b, c ,m, y, k, w for cyan, blue...\n' \
+                '   # r rename task followed by the new task name \n' \
+                '   # g to toggle a marker\n' \
+                '   # f to toggle irellevant state\n' \
+                '   # p dayofthemonth to set task periodically,\n' \
+                '   # w/s to move task up or down (as the number of characters).\n' \
+                '   # rm/del to remove task (delete).\n' \
                 'Example: "6 2 c m" -> color subtask 2 of task 6 in magenta.\n' \
                 '..\n'
     sys_print(help_text)
