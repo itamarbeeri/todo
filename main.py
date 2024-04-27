@@ -82,13 +82,14 @@ def print_instructions(State):
                 '\n' \
                 '\nSPECIFIC COMMANDS (for command number #):\n' \
                 '   To add a subtask - type the task number followed by the new subtask\n' \
+                '   # to expand only this specific task and see its status\n' \
                 '   # d to toggle Done/UnDone\n' \
                 '   # e to toggle sub items expantion display\n' \
                 '   # h to toggle high-importance state on a task\n' \
                 '   # u to toggle urgent state on a task\n' \
                 '   # c to change task color followed by color to change color - r, g, b, c ,m, y, k, w for cyan, blue...\n' \
                 '   # r rename task followed by the new task name \n' \
-                '   # g to toggle a marker\n' \
+                '   # g to toggle taken care of state \n' \
                 '   # f to toggle irellevant state\n' \
                 '   # p dayofthemonth to set task periodically,\n' \
                 '   # w/s to move task up or down (as the number of characters).\n' \
