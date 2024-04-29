@@ -6,27 +6,27 @@ import sys
 from datetime import date
 from os import path
 
-from colorama import Fore, Back, Style
-
 os.system('')
 
 taskfile = "taskfile"
 
 STRIKE_THROUGH_CODE = '\033[9m'
 UNDERLINE_CODE = '\033[4m'
+RESET_ALL_CODE = '\x1b[0m'
+
 def ansi_256_color(color_code):
     return f'\033[38;5;{color_code}m'
 
-color_dict = {'b': Fore.LIGHTBLUE_EX, 'bb': Fore.BLUE,
-              'm': Fore.LIGHTMAGENTA_EX, 'mm': Fore.MAGENTA,
-              'c': Fore.LIGHTCYAN_EX, 'cc': Fore.CYAN,
-              'y': Fore.YELLOW, 'yy': ansi_256_color(184),
-              'r': Fore.LIGHTRED_EX, 'rr': Fore.RED,
-              'g': Fore.LIGHTGREEN_EX, 'gg': Fore.GREEN,
-              'w': Fore.LIGHTWHITE_EX, 'ww': Fore.WHITE,
-              'o': ansi_256_color(208), 'oo': ansi_256_color(214),
+color_dict = {'b': ansi_256_color(27), 'bb': ansi_256_color(33),'bbb': ansi_256_color(75),
+              'm': ansi_256_color(93), 'mm': ansi_256_color(129),
+              'c': ansi_256_color(51), 'cc': ansi_256_color(45),
+              'y': ansi_256_color(11), 'yy': ansi_256_color(184),
+              'r': ansi_256_color(196), 'rr': ansi_256_color(160),
+              'g': ansi_256_color(46), 'gg': ansi_256_color(40),
+              'w': ansi_256_color(15), 'ww': ansi_256_color(255),
+              'o': ansi_256_color(214), 'oo': ansi_256_color(208),'oo': ansi_256_color(202),
               'p': ansi_256_color(201), 'pp': ansi_256_color(207),
-              'br': ansi_256_color(88), 'brbr': ansi_256_color(124),
+              'br': ansi_256_color(130), 'brbr': ansi_256_color(124),
               'gr': ansi_256_color(244), 'grgr': ansi_256_color(246)}
 
 
@@ -38,7 +38,7 @@ opcode_dict = {'d': 'done',
 
 
 def sys_print(text):
-    print(f"{Fore.LIGHTYELLOW_EX}{text}{Style.RESET_ALL}")
+    print(f"{ansi_256_color(225)}{text}{RESET_ALL_CODE}")
 
 
 def load_data(taskfile):
@@ -113,7 +113,7 @@ def print_instructions(State):
     for color_letter, color_code in color_dict.items():
         print(color_code + color_letter, end=', ')
 
-    print(Style.RESET_ALL)
+    print(RESET_ALL_CODE)
     sys_print('\nGood luck! press enter to continue.\n')
     input()
 
@@ -192,7 +192,7 @@ class Task:
         else:
             visible = True
 
-        bg_color = Back.BLACK
+        bg_color = ''
         fg_color = self.color
         for key, val in self.status.items():
             if val is True:
@@ -217,11 +217,11 @@ class Task:
             bg, fg = color_scheme(key)
             expanded_task_status += bg + fg + str(val) + ','
         expanded_task_status[:-1]
-        expanded_task_status += Style.RESET_ALL + f' /{len(self.subTasks)})'
+        expanded_task_status += RESET_ALL_CODE + f' /{len(self.subTasks)})'
         offset = '{:>' + str(max([165 - msg_length, msg_length + 1])) + '}'
         verbose = offset.format(f'{dates}, {expanded_task_status}') if State['verbose'] else ''
 
-        appendix = end + verbose + Style.RESET_ALL
+        appendix = end + verbose + RESET_ALL_CODE
         return appendix
 
     def print(self, State, start=None):
@@ -310,17 +310,17 @@ def display_tasks(State, Tasks):
 
 
 def color_scheme(status_key, original_color=''):
-    bg_color = Back.BLACK
+    bg_color = ''
     fg_color = ''
 
     if status_key == 'done':
-        fg_color = STRIKE_THROUGH_CODE + original_color
+        fg_color = STRIKE_THROUGH_CODE + ansi_256_color(77)
 
     elif status_key == "taken_care_of":
-        fg_color = original_color + Style.DIM
+        fg_color = ansi_256_color(71)
 
     elif status_key == "irrelevant":
-        bg_color = STRIKE_THROUGH_CODE + original_color + Style.DIM
+        bg_color = STRIKE_THROUGH_CODE + ansi_256_color(167)
 
     elif status_key == 'urgent':
         fg_color = UNDERLINE_CODE + original_color
@@ -372,7 +372,7 @@ def execute_command_general(cmd, State, Tasks):
         State['display'] = False
         sys_print('arguments for color command are:')
         for key, val in color_dict.items():
-            print(f"{val}{key}{Style.RESET_ALL}")
+            print(f"{val}{key}{RESET_ALL_CODE}")
 
     elif cmd.opcode == 'const':
         State['constant_parent_task'] = list()
