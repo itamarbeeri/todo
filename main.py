@@ -18,15 +18,15 @@ def ansi_256_color(color_code):
     return f'\033[38;5;{color_code}m'
 
 color_dict = {'b': ansi_256_color(27), 'bb': ansi_256_color(33),'bbb': ansi_256_color(75),
-              'm': ansi_256_color(93), 'mm': ansi_256_color(129),
               'c': ansi_256_color(51), 'cc': ansi_256_color(45),
-              'y': ansi_256_color(11), 'yy': ansi_256_color(184),
-              'r': ansi_256_color(196), 'rr': ansi_256_color(160),
               'g': ansi_256_color(46), 'gg': ansi_256_color(40),
-              'w': ansi_256_color(15), 'ww': ansi_256_color(255),
-              'o': ansi_256_color(214), 'oo': ansi_256_color(208),'oo': ansi_256_color(202),
+              'm': ansi_256_color(93), 'mm': ansi_256_color(129),
               'p': ansi_256_color(201), 'pp': ansi_256_color(207),
+              'y': ansi_256_color(11), 'yy': ansi_256_color(184),
+              'o': ansi_256_color(214), 'oo': ansi_256_color(208), 'ooo': ansi_256_color(202),
               'br': ansi_256_color(130), 'brbr': ansi_256_color(124),
+              'r': ansi_256_color(196), 'rr': ansi_256_color(160),
+              'w': ansi_256_color(15), 'ww': ansi_256_color(255),
               'gr': ansi_256_color(244), 'grgr': ansi_256_color(246)}
 
 
@@ -77,36 +77,38 @@ def print_state(State):
     input()
 
 def print_instructions(State):
-    help_text = 'Welcome to TODO list.\n' \
-                '\nGENERAL COMMANDS:\n' \
-                '   help to display this menu.\n' \
-                '   type the task name to create a new task - .\n' \
-                '   e to expand/collapse all\n' \
-                '   d to hide/display all done tasks\n' \
-                '   f to hide/display all irrelevant tasks\n' \
-                '   g to hide/display all taken_care_of tasks\n' \
-                '   v to hide/display date log\n' \
-                '   h to display only high-importance tasks\n' \
-                '   u to display only urgent tasks\n' \
-                'Example: "d" -> display/dont display done tasks.\n' \
-                '\n' \
-                '\nSPECIFIC COMMANDS (for command number #):\n' \
-                '   To add a subtask - type the task number followed by the new subtask\n' \
-                '   # to expand only this specific task and see its status\n' \
-                '   # rm/del to remove task (delete).\n' \
-                '   # d to toggle Done/UnDone\n' \
-                '   # dd to toggle Done/UnDone to all subtasks\n' \
-                '   # w/s to move task up or down (as the number of characters).\n' \
-                '   # e to toggle sub items expantion display\n' \
-                '   # h to toggle high-importance state on a task\n' \
-                '   # u to toggle urgent state on a task\n' \
-                '   # c to change task color followed by color to change color - r, g, b, c ,m, y, k, w for cyan, blue...\n' \
-                '   # r rename task followed by the new task name \n' \
-                '   # g to toggle taken care of state \n' \
-                '   # f to toggle irellevant state\n' \
-                '   # p dayofthemonth to set task periodically,\n' \
-                'Example: "6 2 c m" -> color subtask 2 of task 6 in magenta.\n' \
-                '..\n'
+    help_text = """Welcome to TODO list.
+
+    GENERAL COMMANDS:
+    - help: Display this menu.
+    - <task name>: Create a new task.
+    - e: Expand/collapse all tasks.
+    - d: Toggle display of done tasks.
+    - f: Toggle display of irrelevant tasks.
+    - g: Toggle display of taken care of tasks.
+    - v: Toggle display of date log.
+    - h: Display only high-importance tasks.
+    - u: Display only urgent tasks.
+
+    SPECIFIC COMMANDS (for task #):
+    - To add a subtask: Type the task number followed by the new subtask.
+    - #: Expand only this task and see its status.
+    - # rm/del: Remove task (delete).
+    - # d: Toggle Done/UnDone for the task.
+    - # dd: Toggle Done/UnDone for all subtasks.
+    - # w/s: Move task up or down.
+    - # e: Toggle display of sub items expansion.
+    - # h: Toggle high-importance state.
+    - # u: Toggle urgent state.
+    - # r: Rename task followed by the new task name.
+    - # g: Toggle taken care of state.
+    - # f: Toggle irrelevant state.
+    - # p dayofthemonth: Set task periodically.
+    - # c color: Change task color (r, g, b, c, m, y, k, w for cyan, blue...).
+
+    Example: "6 2 c m" - Color subtask 2 of task 6 in magenta.
+    """
+
     sys_print(help_text)
 
     sys_print('optional colors are:')
