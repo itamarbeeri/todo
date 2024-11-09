@@ -1,73 +1,17 @@
 #!/usr/bin/env python3
 
 import os
-import pickle
 import sys
 from datetime import date
-from os import path
+from data_manager import save_data, load_data
+from config import opcode_dict, color_dict, HELP_TEXT, CROSS_SECTION_LINE, UNDERLINE_CODE, RESET_ALL_CODE, sys_print, \
+    FG_COLOR_DONE, FG_COLOR_TAKEN_CARE_OF, FG_COLOR_DONE_IRRELEVANT
 
 os.system('')
-
-taskfile = "taskfile"
-
-STRIKE_THROUGH_CODE = '\033[9m'
-UNDERLINE_CODE = '\033[4m'
-RESET_ALL_CODE = '\x1b[0m'
-
-def ansi_256_color(color_code):
-    return f'\033[38;5;{color_code}m'
-
-color_dict = {'b': ansi_256_color(27), 'bb': ansi_256_color(33),'bbb': ansi_256_color(75),
-              'c': ansi_256_color(51), 'cc': ansi_256_color(45),
-              'g': ansi_256_color(46), 'gg': ansi_256_color(40),
-              'm': ansi_256_color(93), 'mm': ansi_256_color(129),
-              'p': ansi_256_color(201), 'pp': ansi_256_color(207),
-              'y': ansi_256_color(11), 'yy': ansi_256_color(184),
-              'o': ansi_256_color(214), 'oo': ansi_256_color(208), 'ooo': ansi_256_color(202),
-              'br': ansi_256_color(130), 'brbr': ansi_256_color(124),
-              'r': ansi_256_color(196), 'rr': ansi_256_color(160),
-              'w': ansi_256_color(15), 'ww': ansi_256_color(255),
-              'gr': ansi_256_color(244), 'grgr': ansi_256_color(246)}
-
-
-opcode_dict = {'d': 'done',
-               'g': 'taken_care_of',
-               'f': 'irrelevant',
-               'u': 'urgent',
-               'h': 'priority'}
-
-
-def sys_print(text):
-    print(f"{ansi_256_color(225)}{text}{RESET_ALL_CODE}")
-
-
-def load_data(taskfile):
-    if not path.isfile(taskfile):
-        State = {"display_done": True, "display_taken_care_of": True, "mark_priority": True, "display_priority": False,
-                 "display_irrelevant": True, 'expand_all': True, 'verbose': False, 'prv_src_pointer': [0], 'display': False,
-                 "display_urgent": False, "constant_parent_task": []}
-        return State, []
-
-    with open(taskfile, "rb") as fp:
-        data = pickle.load(fp)
-        State = data[0]
-        Tasks = data[1]
-
-    return State, Tasks
-
-
-def save_data(taskfile, State, Tasks):
-    data = [State, Tasks]
-    with open(taskfile, "wb") as fp:
-        pickle.dump(data, fp)
-
 
 def update_tasks(Tasks):
     for task in Tasks:
         task.update_status()
-
-def debug(State, Tasks):
-    breakpoint()
 
 def print_state(State):
     sys_print(f'State is: \n')
@@ -77,39 +21,8 @@ def print_state(State):
     input()
 
 def print_instructions(State):
-    help_text = """Welcome to TODO list.
 
-    GENERAL COMMANDS:
-    - help: Display this menu.
-    - <task name>: Create a new task.
-    - e: Expand/collapse all tasks.
-    - d: Toggle display of done tasks.
-    - f: Toggle display of irrelevant tasks.
-    - g: Toggle display of taken care of tasks.
-    - v: Toggle display of date log.
-    - h: Display only high-importance tasks.
-    - u: Display only urgent tasks.
-
-    SPECIFIC COMMANDS (for task #):
-    - To add a subtask: Type the task number followed by the new subtask.
-    - #: Expand only this task and see its status.
-    - # rm/del: Remove task (delete).
-    - # d: Toggle Done/UnDone for the task.
-    - # dd: Toggle Done/UnDone for all subtasks.
-    - # w/s: Move task up or down.
-    - # e: Toggle display of sub items expansion.
-    - # h: Toggle high-importance state.
-    - # u: Toggle urgent state.
-    - # r: Rename task followed by the new task name.
-    - # g: Toggle taken care of state.
-    - # f: Toggle irrelevant state.
-    - # p dayofthemonth: Set task periodically.
-    - # c color: Change task color (r, g, b, c, m, y, k, w for cyan, blue...).
-
-    Example: "6 2 c m" - Color subtask 2 of task 6 in magenta.
-    """
-
-    sys_print(help_text)
+    sys_print(HELP_TEXT)
 
     sys_print('optional colors are:')
     for color_letter, color_code in color_dict.items():
@@ -303,10 +216,10 @@ class Command:
 
 def display_tasks(State, Tasks):
     if State['display']:
-        sys_print('---------------------------------------------------------------------------------------------------')
+        sys_print(CROSS_SECTION_LINE)
         for i, task in enumerate(Tasks):
             task.print(State, start=' ' + str(i) + '.')
-        sys_print('---------------------------------------------------------------------------------------------------')
+        sys_print(CROSS_SECTION_LINE)
     else:
         State['display'] = True
 
@@ -316,13 +229,13 @@ def color_scheme(status_key, original_color=''):
     fg_color = ''
 
     if status_key == 'done':
-        fg_color = STRIKE_THROUGH_CODE + ansi_256_color(77)
+        fg_color = FG_COLOR_DONE
 
     elif status_key == "taken_care_of":
-        fg_color = ansi_256_color(71)
+        fg_color = FG_COLOR_TAKEN_CARE_OF
 
     elif status_key == "irrelevant":
-        bg_color = STRIKE_THROUGH_CODE + ansi_256_color(167)
+        bg_color = FG_COLOR_DONE_IRRELEVANT
 
     elif status_key == 'urgent':
         fg_color = UNDERLINE_CODE + original_color
@@ -340,9 +253,6 @@ def get_task(Tasks, task_pointer_list):
 def execute_command_general(cmd, State, Tasks):
     if cmd.opcode == 'quit' or cmd.opcode == 'exit':
         sys.exit()
-
-    elif cmd.opcode == 'debug':
-        debug(State, Tasks)
 
     elif cmd.opcode == 'state':
         print_state(State)
@@ -447,22 +357,20 @@ def execute_command_specific(cmd, State, Tasks):
 
 
 def main():
-    global taskfile
-    State, Tasks = load_data(taskfile)
-    update_tasks(Tasks)
-
     sys_print('welcome to TODO list:')
+
+    file_ID, State, Tasks = load_data()
+    update_tasks(Tasks)
     display_tasks(State, Tasks)
 
     while True:
         try:
             cmd = Command(input(), State)
             cmd.execute(State, Tasks)
-
             display_tasks(State, Tasks)
-            save_data(taskfile, State, Tasks)
 
         except SystemExit:
+            file_ID = save_data(file_ID, State, Tasks)
             sys_print('good bye.')
             sys.exit()
 
@@ -475,3 +383,4 @@ if __name__ == '__main__':
     main()
 
 # pyinstaller --onefile main.py
+
