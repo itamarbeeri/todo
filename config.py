@@ -6,21 +6,45 @@ with open('credentials.yml', 'r') as file:
 DROPBOX_TOKEN = credentials['dropbox_token']
 TASK_FILE_NAME = "todo_list_task_file"
 
+_version_major = 1
+_version_minor = 1
+_version_build = 1
+VERSION = f"{_version_major}_{_version_minor}_{_version_build}"
+
+MAX_UNSAVED_TIME = 180
+MAX_UNSAVED_COMMANDS = 10
+
 STRIKE_THROUGH_CODE = '\033[9m'
 UNDERLINE_CODE = '\033[4m'
 RESET_ALL_CODE = '\x1b[0m'
 
+
 def ansi_256_color(color_code):
     return f'\033[38;5;{color_code}m'
+
 
 def sys_print(text):
     print(f"{ansi_256_color(225)}{text}{RESET_ALL_CODE}")
 
+
 FG_COLOR_DONE = STRIKE_THROUGH_CODE + ansi_256_color(77)
 FG_COLOR_TAKEN_CARE_OF = ansi_256_color(71)
 FG_COLOR_DONE_IRRELEVANT = STRIKE_THROUGH_CODE + ansi_256_color(167)
+CROSS_SECTION_LINE = '-------------------------------------------------------------------------------------------------'
 
-color_dict = {'b': ansi_256_color(27), 'bb': ansi_256_color(33),'bbb': ansi_256_color(75),
+initial_state = {"display_done": True,
+                 "display_taken_care_of": True,
+                 "mark_priority": True,
+                 "display_priority": False,
+                 "display_irrelevant": True,
+                 'expand_all': True,
+                 'verbose': False,
+                 'prv_src_pointer': [0],
+                 'display': False,
+                 "display_urgent": False,
+                 "constant_parent_task": []}
+
+color_dict = {'b': ansi_256_color(27), 'bb': ansi_256_color(33), 'bbb': ansi_256_color(75),
               'c': ansi_256_color(51), 'cc': ansi_256_color(45),
               'g': ansi_256_color(46), 'gg': ansi_256_color(40),
               'm': ansi_256_color(93), 'mm': ansi_256_color(129),
@@ -32,13 +56,11 @@ color_dict = {'b': ansi_256_color(27), 'bb': ansi_256_color(33),'bbb': ansi_256_
               'w': ansi_256_color(15), 'ww': ansi_256_color(255),
               'gr': ansi_256_color(244), 'grgr': ansi_256_color(246)}
 
-
 opcode_dict = {'d': 'done',
                'g': 'taken_care_of',
                'f': 'irrelevant',
                'u': 'urgent',
                'h': 'priority'}
-
 
 HELP_TEXT = """Welcome to TODO list.
 
@@ -71,5 +93,3 @@ HELP_TEXT = """Welcome to TODO list.
 
     Example: "6 2 c m" - Color subtask 2 of task 6 in magenta.
     """
-
-CROSS_SECTION_LINE = '-------------------------------------------------------------------------------------------------'

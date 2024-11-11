@@ -3,15 +3,22 @@
 import os
 import sys
 from datetime import date
-from data_manager import save_data, load_data
+from time import time
+
 from config import opcode_dict, color_dict, HELP_TEXT, CROSS_SECTION_LINE, UNDERLINE_CODE, RESET_ALL_CODE, sys_print, \
-    FG_COLOR_DONE, FG_COLOR_TAKEN_CARE_OF, FG_COLOR_DONE_IRRELEVANT
+    FG_COLOR_DONE, FG_COLOR_TAKEN_CARE_OF, FG_COLOR_DONE_IRRELEVANT, MAX_UNSAVED_COMMANDS, MAX_UNSAVED_TIME
+from data_manager import save_data, load_data
 
 os.system('')
+
+unsaved_command_counter = 0
+previous_saved_time = time()
+
 
 def update_tasks(Tasks):
     for task in Tasks:
         task.update_status()
+
 
 def print_state(State):
     sys_print(f'State is: \n')
@@ -20,8 +27,8 @@ def print_state(State):
     sys_print('\npress enter to continue.\n')
     input()
 
-def print_instructions(State):
 
+def print_instructions(State):
     sys_print(HELP_TEXT)
 
     sys_print('optional colors are:')
@@ -53,7 +60,8 @@ class Task:
                     self.status['urgent'] = False
         else:
             if self.period['lastActivation'].month != today.month:
-                if int(self.period['activationDay']) <= today.day or self.period['lastActivation'].month + 1 < today.month:
+                if int(self.period['activationDay']) <= today.day or self.period[
+                    'lastActivation'].month + 1 < today.month:
                     self.period['lastActivation'] = today
                     self.set_status('done', False, propogate=False)
 
@@ -202,6 +210,9 @@ class Command:
         return ' '.join(cmd)
 
     def execute(self, State, Tasks):
+        global unsaved_command_counter
+        unsaved_command_counter += 1
+
         if len(self.task_location) == 0:
             execute_command_general(self, State, Tasks)
         else:
@@ -356,6 +367,24 @@ def execute_command_specific(cmd, State, Tasks):
             task.add_subTask(' '.join([cmd.opcode, cmd.data]))
 
 
+def sparse_data_saver(State, Tasks):
+    def save_data_wrapper():
+        save_data(State, Tasks)
+        unsaved_command_counter = 0
+        previous_saved_time = time()
+
+    global unsaved_command_counter
+    global previous_saved_time
+
+    if unsaved_command_counter > MAX_UNSAVED_COMMANDS:
+        save_data_wrapper()
+        return
+
+    if unsaved_command_counter > 1 and time() - previous_saved_time > MAX_UNSAVED_TIME:
+        save_data_wrapper()
+        return
+
+
 def main():
     sys_print('welcome to TODO list:')
 
@@ -368,7 +397,7 @@ def main():
             cmd = Command(input(), State)
             cmd.execute(State, Tasks)
             display_tasks(State, Tasks)
-            save_data(State, Tasks)
+            sparse_data_saver(State, Tasks)
 
         except SystemExit:
             save_data(State, Tasks)
@@ -384,4 +413,3 @@ if __name__ == '__main__':
     main()
 
 # pyinstaller --onefile main.py
-

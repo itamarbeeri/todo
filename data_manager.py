@@ -2,7 +2,7 @@ import pickle
 
 import dropbox
 
-from config import DROPBOX_TOKEN, TASK_FILE_NAME, sys_print
+from config import VERSION, DROPBOX_TOKEN, TASK_FILE_NAME, initial_state, sys_print
 
 dbx = dropbox.Dropbox(DROPBOX_TOKEN)
 file_path = f'/{TASK_FILE_NAME}'
@@ -24,17 +24,20 @@ def load_data():
         data = _download_file(file_path)
     except:
         sys_print('creating a new task file..')
-        data = [{"display_done": True, "display_taken_care_of": True, "mark_priority": True, "display_priority": False,
-                 "display_irrelevant": True, 'expand_all': True, 'verbose': False, 'prv_src_pointer': [0],
-                 'display': False,
-                 "display_urgent": False, "constant_parent_task": []}, list()]
+        data = [VERSION, initial_state, list()]
 
-    State = data[0]
-    Tasks = data[1]
+    Version = data[0]
+    State = data[1]
+    Tasks = data[2]
+
+    if Version != VERSION:
+        sys_print(f"MISS MATCHED VERSIONS! \n app version: {VERSION}, data version: {Version}")
 
     return State, Tasks
 
 
 def save_data(State, Tasks):
-    data = [State, Tasks]
+    data = [VERSION, State, Tasks]
     _upload_file(data, file_path)
+    sys_print('--data saved--')
+
