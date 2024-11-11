@@ -34,15 +34,15 @@ FG_COLOR_TAKEN_CARE_OF = ansi_256_color(71)
 FG_COLOR_DONE_IRRELEVANT = STRIKE_THROUGH_CODE + ansi_256_color(167)
 CROSS_SECTION_LINE = '-------------------------------------------------------------------------------------------------'
 
-initial_state = {"display_done": True,
-                 "display_taken_care_of": True,
-                 "mark_priority": True,
+initial_state = {"display_done": False,
+                 "display_taken_care_of": False,
+                 "mark_priority": False,
                  "display_priority": False,
-                 "display_irrelevant": True,
-                 'expand_all': True,
+                 "display_irrelevant": False,
+                 'expand_all': False,
                  'verbose': False,
                  'prv_src_pointer': [0],
-                 'display': False,
+                 'display': True,
                  "display_urgent": False,
                  "constant_parent_task": [],
                  "unsaved_command_counter": 0,

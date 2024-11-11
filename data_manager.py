@@ -24,11 +24,11 @@ def load_data():
         data = _download_file(file_path)
     except:
         sys_print('creating a new task file..')
-        data = [VERSION, initial_state, list()]
+        data = [VERSION, list()]
 
     Version = data[0]
-    State = data[1]
-    Tasks = data[2]
+    Tasks = data[1]
+    State = initial_state
 
     if Version != VERSION:
         sys_print(f"MISS MATCHED VERSIONS! \n app version: {VERSION}, data version: {Version}")
@@ -37,7 +37,7 @@ def load_data():
 
 
 def save_data(State, Tasks):
-    data = [VERSION, State, Tasks]
+    data = [VERSION, Tasks]
     _upload_file(data, file_path)
     sys_print('--data saved--')
 
