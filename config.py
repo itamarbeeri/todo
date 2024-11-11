@@ -1,4 +1,10 @@
-TASK_FILE_NAME = "todo_list_task_file__87asjkd09jfa0asdvj190ujas09ojk"
+import yaml
+
+with open('credentials.yml', 'r') as file:
+    credentials = yaml.load(file, Loader=yaml.FullLoader)
+
+DROPBOX_TOKEN = credentials['dropbox_token']
+TASK_FILE_NAME = "todo_list_task_file"
 
 STRIKE_THROUGH_CODE = '\033[9m'
 UNDERLINE_CODE = '\033[4m'

@@ -359,7 +359,7 @@ def execute_command_specific(cmd, State, Tasks):
 def main():
     sys_print('welcome to TODO list:')
 
-    file_ID, State, Tasks = load_data()
+    State, Tasks = load_data()
     update_tasks(Tasks)
     display_tasks(State, Tasks)
 
@@ -368,9 +368,10 @@ def main():
             cmd = Command(input(), State)
             cmd.execute(State, Tasks)
             display_tasks(State, Tasks)
+            save_data(State, Tasks)
 
         except SystemExit:
-            file_ID = save_data(file_ID, State, Tasks)
+            save_data(State, Tasks)
             sys_print('good bye.')
             sys.exit()
 
