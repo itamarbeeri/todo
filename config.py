@@ -1,3 +1,5 @@
+from time import time
+
 import yaml
 
 with open('credentials.yml', 'r') as file:
@@ -11,7 +13,7 @@ _version_minor = 1
 _version_build = 1
 VERSION = f"{_version_major}_{_version_minor}_{_version_build}"
 
-MAX_UNSAVED_TIME = 180
+MAX_UNSAVED_TIME = 300
 MAX_UNSAVED_COMMANDS = 10
 
 STRIKE_THROUGH_CODE = '\033[9m'
@@ -42,7 +44,9 @@ initial_state = {"display_done": True,
                  'prv_src_pointer': [0],
                  'display': False,
                  "display_urgent": False,
-                 "constant_parent_task": []}
+                 "constant_parent_task": [],
+                 "unsaved_command_counter": 0,
+                 "previous_saved_time": time()}
 
 color_dict = {'b': ansi_256_color(27), 'bb': ansi_256_color(33), 'bbb': ansi_256_color(75),
               'c': ansi_256_color(51), 'cc': ansi_256_color(45),

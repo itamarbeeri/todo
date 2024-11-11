@@ -11,9 +11,6 @@ from data_manager import save_data, load_data
 
 os.system('')
 
-unsaved_command_counter = 0
-previous_saved_time = time()
-
 
 def update_tasks(Tasks):
     for task in Tasks:
@@ -210,8 +207,7 @@ class Command:
         return ' '.join(cmd)
 
     def execute(self, State, Tasks):
-        global unsaved_command_counter
-        unsaved_command_counter += 1
+        State['unsaved_command_counter'] += 1
 
         if len(self.task_location) == 0:
             execute_command_general(self, State, Tasks)
@@ -370,17 +366,14 @@ def execute_command_specific(cmd, State, Tasks):
 def sparse_data_saver(State, Tasks):
     def save_data_wrapper():
         save_data(State, Tasks)
-        unsaved_command_counter = 0
-        previous_saved_time = time()
+        State['unsaved_command_counter'] = 0
+        State['previous_saved_time'] = time()
 
-    global unsaved_command_counter
-    global previous_saved_time
-
-    if unsaved_command_counter > MAX_UNSAVED_COMMANDS:
+    if State['unsaved_command_counter'] > MAX_UNSAVED_COMMANDS:
         save_data_wrapper()
         return
 
-    if unsaved_command_counter > 1 and time() - previous_saved_time > MAX_UNSAVED_TIME:
+    if State['unsaved_command_counter'] > 1 and time() - State['previous_saved_time'] > MAX_UNSAVED_TIME:
         save_data_wrapper()
         return
 
@@ -389,6 +382,9 @@ def main():
     sys_print('welcome to TODO list:')
 
     State, Tasks = load_data()
+    State['unsaved_command_counter'] = 0
+    State['previous_saved_time'] = time()
+
     update_tasks(Tasks)
     display_tasks(State, Tasks)
 
