@@ -35,7 +35,7 @@ FG_COLOR_DONE_IRRELEVANT = STRIKE_THROUGH_CODE + ansi_256_color(167)
 CROSS_SECTION_LINE = '-------------------------------------------------------------------------------------------------'
 
 initial_state = {"display_done": False,
-                 "display_taken_care_of": False,
+                 "display_taken_care_of": True,
                  "mark_priority": False,
                  "display_priority": False,
                  "display_irrelevant": False,
@@ -54,7 +54,7 @@ color_dict = {'b': ansi_256_color(27), 'bb': ansi_256_color(33), 'bbb': ansi_256
               'g': ansi_256_color(46), 'gg': ansi_256_color(40),
               'm': ansi_256_color(93), 'mm': ansi_256_color(129),
               'p': ansi_256_color(201), 'pp': ansi_256_color(207),
-              'y': ansi_256_color(11), 'yy': ansi_256_color(184),
+              'y': ansi_256_color(11), 'yy': ansi_256_color(220), 'yyy': ansi_256_color(184),
               'o': ansi_256_color(214), 'oo': ansi_256_color(208), 'ooo': ansi_256_color(202),
               'br': ansi_256_color(130), 'brbr': ansi_256_color(124),
               'r': ansi_256_color(196), 'rr': ansi_256_color(160),

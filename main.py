@@ -6,7 +6,8 @@ from datetime import date
 from time import time
 
 from config import opcode_dict, color_dict, HELP_TEXT, CROSS_SECTION_LINE, UNDERLINE_CODE, RESET_ALL_CODE, sys_print, \
-    FG_COLOR_DONE, FG_COLOR_TAKEN_CARE_OF, FG_COLOR_DONE_IRRELEVANT, MAX_UNSAVED_COMMANDS, MAX_UNSAVED_TIME
+    FG_COLOR_DONE, FG_COLOR_TAKEN_CARE_OF, FG_COLOR_DONE_IRRELEVANT, MAX_UNSAVED_COMMANDS, MAX_UNSAVED_TIME, \
+    initial_state
 from data_manager import save_data, load_data
 
 os.system('')
@@ -157,7 +158,7 @@ class Task:
 
         if self.expand is True:
             for i, subTask in enumerate(self.subTasks):
-                if State['display_urgent'] or State['display_priority']:
+                if State['display_urgent'] or State['display_priority'] or State['display_agenda']:
                     sub_start = start + str(i) + '.'
                 else:
                     sub_start = ''.join([' ' for _ in range(start.count(' '))]) + '    ' + str(i) + '.'
@@ -285,7 +286,7 @@ def execute_command_general(cmd, State, Tasks):
         save_data_wrapper(State, Tasks)
 
     elif cmd.opcode == 'e':
-        State['display_urgent'], State['display_priority'] = False, False
+        State['display_urgent'], State['display_priority'], State['display_agenda'] = False, False, False
         State['expand_all'] = not State['expand_all']
         for task in Tasks:
             task.set_expension(State['expand_all'])
@@ -387,13 +388,11 @@ def sparse_data_saver(State, Tasks):
 def main():
     sys_print('welcome to TODO list:')
 
-    State, Tasks = load_data()
+    _, Tasks = load_data()
+    State = initial_state
     State['unsaved_command_counter'] = 0
     State['previous_saved_time'] = time()
 
-    State['display_agenda']= False
-    for task in Tasks:
-        task.set_status('agenda', False, propogate=True)
     update_tasks(Tasks)
     display_tasks(State, Tasks)
 
