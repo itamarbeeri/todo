@@ -315,6 +315,8 @@ def execute_command_specific(cmd, State, Tasks):
         State['expand_all'] = False
         State['display_priority'] = False
         State['display_urgent'] = False
+        State['display_agenda'] = False
+
         sys_print(task.status)
         sys_print(task.period)
         for Task in Tasks:
@@ -384,15 +386,17 @@ def sparse_data_saver(State, Tasks):
         save_data_wrapper(State, Tasks)
         return
 
+def init_state():
+    State = initial_state
+    State['unsaved_command_counter'] = 0
+    State['previous_saved_time'] = time()
+    return State
 
 def main():
     sys_print('welcome to TODO list:')
 
     _, Tasks = load_data()
-    State = initial_state
-    State['unsaved_command_counter'] = 0
-    State['previous_saved_time'] = time()
-
+    State = init_state()
     update_tasks(Tasks)
     display_tasks(State, Tasks)
 
