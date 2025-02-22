@@ -45,7 +45,7 @@ class Task:
         self.expand = True
         self.creation_date = date.today()
         self.done_date = None
-        self.status = {'done': False, 'taken_care_of': False, 'irrelevant': False, 'urgent': False, 'priority': False}
+        self.status = {'done': False, 'taken_care_of': False, 'irrelevant': False, 'urgent': False, 'priority': False, 'agenda': False}
         self.period = {'activationDay': 0, 'lastActivation': date.today()}
 
     def update_status(self):
@@ -89,7 +89,7 @@ class Task:
             subTask.set_expension(val)
 
     def count_status(self):
-        counter = {'regular': 0, 'done': 0, 'taken_care_of': 0, 'priority': 0, 'urgent': 0, 'irrelevant': 0}
+        counter = {'regular': 0, 'done': 0, 'taken_care_of': 0, 'priority': 0, 'urgent': 0, 'irrelevant': 0, 'agenda': 0}
         for subTask in self.subTasks:
             is_regular = True
             for key, val in subTask.status.items():
@@ -102,6 +102,8 @@ class Task:
         if State['display_urgent'] is True and self.status['urgent'] is False:
             visible = False
         elif State['display_priority'] is True and self.status['priority'] is False:
+            visible = False
+        elif State['display_agenda'] is True and self.status['agenda'] is False:
             visible = False
         elif State['display_irrelevant'] is False and self.status['irrelevant'] is True:
             visible = False
@@ -215,7 +217,7 @@ class Command:
             execute_command_specific(self, State, Tasks)
 
         if self.next_raw_cmd is not None:
-            cmd = Command(self.next_raw_cmd)
+            cmd = Command(self.next_raw_cmd, State)
             cmd.execute(State, Tasks)
 
         State['prv_src_pointer'] = self.task_location
@@ -271,12 +273,16 @@ def execute_command_general(cmd, State, Tasks):
         property_name = 'display_' + opcode_dict[cmd.opcode]
         State[property_name] = not State[property_name]
 
-        if cmd.opcode == 'u' or cmd.opcode == 'h':
-            State['display_urgent'] = False if cmd.opcode == 'h' else State['display_urgent']
-            State['display_priority'] = False if cmd.opcode == 'u' else State['display_priority']
+        if cmd.opcode == 'u' or cmd.opcode == 'h' or cmd.opcode == 'a':
+            State['display_urgent'] = State['display_urgent'] if cmd.opcode == 'u' else False
+            State['display_priority'] = State['display_priority'] if cmd.opcode == 'h' else False
+            State['display_agenda'] = State['display_agenda'] if cmd.opcode == 'a' else False
             State['expand_all'] = True
             for task in Tasks:
                 task.set_expension(State['expand_all'])
+
+    elif cmd.opcode == 's':
+        save_data_wrapper(State, Tasks)
 
     elif cmd.opcode == 'e':
         State['display_urgent'], State['display_priority'] = False, False
@@ -315,9 +321,10 @@ def execute_command_specific(cmd, State, Tasks):
         task.set_expension(True)
 
     elif cmd.opcode in opcode_dict:
+        propogate = True if cmd.opcode == 'f' else False
         property_name = opcode_dict[cmd.opcode]
         current_val = task.status[property_name]
-        task.set_status(property_name, not current_val)
+        task.set_status(property_name, not current_val, propogate=propogate)
 
         if cmd.opcode == 'u':
             task.status['priority'] = True if task.status['urgent'] is True else task.status['priority']
@@ -362,19 +369,18 @@ def execute_command_specific(cmd, State, Tasks):
         if not cmd.opcode in opcode_dict:
             task.add_subTask(' '.join([cmd.opcode, cmd.data]))
 
+def save_data_wrapper(State, Tasks):
+    save_data(State, Tasks)
+    State['unsaved_command_counter'] = 0
+    State['previous_saved_time'] = time()
 
 def sparse_data_saver(State, Tasks):
-    def save_data_wrapper():
-        save_data(State, Tasks)
-        State['unsaved_command_counter'] = 0
-        State['previous_saved_time'] = time()
-
     if State['unsaved_command_counter'] > MAX_UNSAVED_COMMANDS:
-        save_data_wrapper()
+        save_data_wrapper(State, Tasks)
         return
 
     if State['unsaved_command_counter'] > 1 and time() - State['previous_saved_time'] > MAX_UNSAVED_TIME:
-        save_data_wrapper()
+        save_data_wrapper(State, Tasks)
         return
 
 
@@ -385,6 +391,9 @@ def main():
     State['unsaved_command_counter'] = 0
     State['previous_saved_time'] = time()
 
+    State['display_agenda']= False
+    for task in Tasks:
+        task.set_status('agenda', False, propogate=True)
     update_tasks(Tasks)
     display_tasks(State, Tasks)
 

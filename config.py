@@ -13,7 +13,7 @@ _version_minor = 1
 _version_build = 1
 VERSION = f"{_version_major}_{_version_minor}_{_version_build}"
 
-MAX_UNSAVED_TIME = 300
+MAX_UNSAVED_TIME = 60
 MAX_UNSAVED_COMMANDS = 10
 
 STRIKE_THROUGH_CODE = '\033[9m'
@@ -44,6 +44,7 @@ initial_state = {"display_done": False,
                  'prv_src_pointer': [0],
                  'display': True,
                  "display_urgent": False,
+                 "display_agenda": False,
                  "constant_parent_task": [],
                  "unsaved_command_counter": 0,
                  "previous_saved_time": time()}
@@ -64,7 +65,8 @@ opcode_dict = {'d': 'done',
                'g': 'taken_care_of',
                'f': 'irrelevant',
                'u': 'urgent',
-               'h': 'priority'}
+               'h': 'priority',
+               'a': 'agenda'}
 
 HELP_TEXT = """Welcome to TODO list.
 
@@ -78,6 +80,8 @@ HELP_TEXT = """Welcome to TODO list.
     - v: Toggle display of date log.
     - h: Display only high-importance tasks.
     - u: Display only urgent tasks.
+    - s: Save changes
+    - a: Add to agenda
 
     SPECIFIC COMMANDS (for task #):
     - To add a subtask: Type the task number followed by the new subtask.
@@ -92,6 +96,7 @@ HELP_TEXT = """Welcome to TODO list.
     - # r: Rename task followed by the new task name.
     - # g: Toggle taken care of state.
     - # f: Toggle irrelevant state.
+    - # a: Add and remove from agenda.
     - # p dayofthemonth: Set task periodically.
     - # c color: Change task color (r, g, b, c, m, y, k, w for cyan, blue...).
 
