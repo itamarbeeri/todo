@@ -9,6 +9,7 @@ VERSION = f"{_version_major}_{_version_minor}_{_version_build}"
 
 MAX_UNSAVED_TIME = 60
 MAX_UNSAVED_COMMANDS = 10
+MAX_UNDO_STEPS = 50
 
 STRIKE_THROUGH_CODE = '\033[9m'
 UNDERLINE_CODE = '\033[4m'
@@ -74,8 +75,10 @@ HELP_TEXT = """Welcome to TODO list.
     - v: Toggle display of date log.
     - h: Display only high-importance tasks.
     - u: Display only urgent tasks.
-    - s: Save changes
-    - a: Add to agenda
+    - a: Toggle agenda view.
+    - s: Save changes.
+    - z: Undo last change.
+    - y: Redo last undone change.
 
     SPECIFIC COMMANDS (for task #):
     - To add a subtask: Type the task number followed by the new subtask.
@@ -83,16 +86,16 @@ HELP_TEXT = """Welcome to TODO list.
     - # rm/del: Remove task (delete).
     - # d: Toggle Done/UnDone for the task.
     - # dd: Toggle Done/UnDone for all subtasks.
-    - # w/s: Move task up or down.
+    - # w/s: Move task up or down (in agenda view: reorders display only).
     - # e: Toggle display of sub items expansion.
     - # h: Toggle high-importance state.
     - # u: Toggle urgent state.
-    - # r: Rename task followed by the new task name.
+    - # r <name>: Rename task.
     - # g: Toggle taken care of state.
     - # f: Toggle irrelevant state.
-    - # a: Add and remove from agenda.
-    - # p dayofthemonth: Set task periodically.
-    - # c color: Change task color (r, g, b, c, m, y, k, w for cyan, blue...).
+    - # a: Add/remove from agenda.
+    - # p <day>: Set task to repeat on a day of the month.
+    - # c <color>: Change task color (r, g, b, c, m, y, k, w...).
 
     Example: "6 2 c m" - Color subtask 2 of task 6 in magenta.
     """

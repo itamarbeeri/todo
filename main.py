@@ -1,16 +1,53 @@
 #!/usr/bin/env python3
 
+import copy
+import math
 import os
+import re
 import sys
 from datetime import date
 from time import time
 
 from config import opcode_dict, color_dict, HELP_TEXT, CROSS_SECTION_LINE, UNDERLINE_CODE, RESET_ALL_CODE, sys_print, \
     FG_COLOR_DONE, FG_COLOR_TAKEN_CARE_OF, FG_COLOR_DONE_IRRELEVANT, MAX_UNSAVED_COMMANDS, MAX_UNSAVED_TIME, \
-    initial_state
+    MAX_UNDO_STEPS, initial_state
 from data_manager import save_data, load_data
 
 os.system('')
+
+ANSI_ESCAPE_RE = re.compile(r'\x1b\[[0-9;]*[A-Za-z]')
+
+
+class LineCountingStream:
+    def __init__(self, stream, state):
+        self.stream = stream
+        self.state = state
+        self._col = 0
+
+    def write(self, text):
+        self.stream.write(text)
+        try:
+            cols = os.get_terminal_size().columns
+        except OSError:
+            cols = 80
+        for segment in ANSI_ESCAPE_RE.split(text):
+            for char in segment:
+                if char == '\n':
+                    self.state['lines_since_last_erase'] += 1
+                    self._col = 0
+                elif char == '\r':
+                    self._col = 0
+                else:
+                    self._col += 1
+                    if self._col >= cols:
+                        self.state['lines_since_last_erase'] += 1
+                        self._col = 0
+
+    def flush(self):
+        self.stream.flush()
+
+    def fileno(self):
+        return self.stream.fileno()
 
 
 def update_tasks(Tasks):
@@ -216,6 +253,12 @@ class Command:
         State['pinned_task'] = None
         State['unsaved_command_counter'] += 1
 
+        if self.opcode not in ('z', 'y'):
+            State['undo_stack'].append(copy.deepcopy(Tasks))
+            if len(State['undo_stack']) > MAX_UNDO_STEPS:
+                State['undo_stack'].pop(0)
+            State['redo_stack'].clear()
+
         if len(self.task_location) == 0:
             execute_command_general(self, State, Tasks)
         else:
@@ -248,8 +291,21 @@ def sync_agenda_order(State, Tasks):
             State['agenda_order'].append(t)
 
 
+def _erase_lines(n):
+    out = sys.__stdout__ if sys.__stdout__ is not None else sys.stdout
+    out.write(f'\033[{n}A\033[J')
+    out.flush()
+
+
 def display_tasks(State, Tasks):
     if State['display']:
+        lines = State['lines_since_last_erase']
+        if lines > 0:
+            _erase_lines(lines)
+        State['lines_since_last_erase'] = 0
+
+        if State['unsaved_command_counter'] > 0:
+            sys_print(f'* unsaved changes ({State["unsaved_command_counter"]})')
         sys_print(CROSS_SECTION_LINE)
         if State['display_agenda']:
             sync_agenda_order(State, Tasks)
@@ -296,6 +352,16 @@ def get_task(Tasks, task_pointer_list):
 def execute_command_general(cmd, State, Tasks):
     if cmd.opcode == 'quit' or cmd.opcode == 'exit':
         sys.exit()
+
+    elif cmd.opcode == 'z':
+        if State['undo_stack']:
+            State['redo_stack'].append(copy.deepcopy(Tasks))
+            Tasks[:] = State['undo_stack'].pop()
+
+    elif cmd.opcode == 'y':
+        if State['redo_stack']:
+            State['undo_stack'].append(copy.deepcopy(Tasks))
+            Tasks[:] = State['redo_stack'].pop()
 
     elif cmd.opcode == 'state':
         print_state(State)
@@ -431,6 +497,9 @@ def sparse_data_saver(State, Tasks):
 def init_state():
     State = initial_state.copy()
     State['agenda_order'] = []
+    State['lines_since_last_erase'] = 0
+    State['undo_stack'] = []
+    State['redo_stack'] = []
     State['unsaved_command_counter'] = 0
     State['previous_saved_time'] = time()
     return State
@@ -443,11 +512,17 @@ def main():
     update_tasks(Tasks)
     for task in Tasks:
         task.set_expension(False)
+
+    real_stdout = sys.__stdout__ if sys.__stdout__ is not None else sys.stdout
+    sys.stdout = LineCountingStream(real_stdout, State)
+
     display_tasks(State, Tasks)
 
     while True:
         try:
-            cmd = Command(input(), State)
+            raw = input()
+            State['lines_since_last_erase'] += 1
+            cmd = Command(raw, State)
             cmd.execute(State, Tasks)
             display_tasks(State, Tasks)
             sparse_data_saver(State, Tasks)
