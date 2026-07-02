@@ -1,11 +1,5 @@
 from time import time
 
-import yaml
-
-with open('credentials.yml', 'r') as file:
-    credentials = yaml.load(file, Loader=yaml.FullLoader)
-
-DROPBOX_TOKEN = credentials['dropbox_token']
 TASK_FILE_NAME = "todo_list_task_file"
 
 _version_major = 1
