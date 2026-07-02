@@ -165,11 +165,7 @@ class Task:
 
         if self.expand is True:
             for i, subTask in enumerate(self.subTasks):
-                if State['display_urgent'] or State['display_priority'] or State['display_agenda']:
-                    sub_start = start + str(i) + '.'
-                else:
-                    sub_start = ''.join([' ' for _ in range(start.count(' '))]) + '    ' + str(i) + '.'
-                subTask.print(State, start=sub_start)
+                subTask.print(State, start=start + str(i) + '.')
 
 
 class Command:
@@ -232,11 +228,40 @@ class Command:
         State['prv_src_pointer'] = self.task_location
 
 
+def collect_agenda_tasks(Tasks):
+    result = []
+    def recurse(task):
+        if task.status['agenda']:
+            result.append(task)
+        for sub in task.subTasks:
+            recurse(sub)
+    for task in Tasks:
+        recurse(task)
+    return result
+
+
+def sync_agenda_order(State, Tasks):
+    all_agenda = collect_agenda_tasks(Tasks)
+    State['agenda_order'] = [t for t in State['agenda_order'] if t in all_agenda]
+    for t in all_agenda:
+        if t not in State['agenda_order']:
+            State['agenda_order'].append(t)
+
+
 def display_tasks(State, Tasks):
     if State['display']:
         sys_print(CROSS_SECTION_LINE)
-        for i, task in enumerate(Tasks):
-            task.print(State, start=' ' + str(i) + '.')
+        if State['display_agenda']:
+            sync_agenda_order(State, Tasks)
+            for i, task in enumerate(State['agenda_order']):
+                fg_color, bg_color, _ = task.get_display_params(State)
+                start_str = f' {i}.'
+                end = task.build_appendix(State, len(start_str) + 1 + len(task.name))
+                start_color = fg_color.replace(UNDERLINE_CODE, '') if UNDERLINE_CODE in fg_color else fg_color
+                print(f"{bg_color}{start_color}{start_str} {fg_color}{task.name} {end}")
+        else:
+            for i, task in enumerate(Tasks):
+                task.print(State, start=' ' + str(i) + '.')
         sys_print(CROSS_SECTION_LINE)
     else:
         State['display'] = True
@@ -317,7 +342,10 @@ def execute_command_general(cmd, State, Tasks):
 
 
 def execute_command_specific(cmd, State, Tasks):
-    task = get_task(Tasks, cmd.task_location)
+    if State['display_agenda']:
+        task = State['agenda_order'][cmd.task_location[0]]
+    else:
+        task = get_task(Tasks, cmd.task_location)
 
     if cmd.opcode == None:
         State['expand_all'] = False
@@ -357,9 +385,14 @@ def execute_command_specific(cmd, State, Tasks):
 
     elif all(chr == 'w' for chr in cmd.opcode) or all(chr == 's' for chr in cmd.opcode):
         direction = 1 if cmd.opcode.startswith('s') else -1
-        parent_task_list = Tasks if len(cmd.task_location) == 1 else get_task(Tasks, cmd.task_location[:-1]).subTasks
-        dst = (cmd.task_location[-1] + direction * len(cmd.opcode)) % len(parent_task_list)
-        parent_task_list.insert(dst, parent_task_list.pop(parent_task_list.index(task)))
+        if State['display_agenda']:
+            src = cmd.task_location[0]
+            dst = (src + direction * len(cmd.opcode)) % len(State['agenda_order'])
+            State['agenda_order'].insert(dst, State['agenda_order'].pop(src))
+        else:
+            parent_task_list = Tasks if len(cmd.task_location) == 1 else get_task(Tasks, cmd.task_location[:-1]).subTasks
+            dst = (cmd.task_location[-1] + direction * len(cmd.opcode)) % len(parent_task_list)
+            parent_task_list.insert(dst, parent_task_list.pop(parent_task_list.index(task)))
 
     elif cmd.opcode == 'rm' or cmd.opcode == 'del':
         pointer = cmd.task_location[-1]
@@ -397,6 +430,7 @@ def sparse_data_saver(State, Tasks):
 
 def init_state():
     State = initial_state.copy()
+    State['agenda_order'] = []
     State['unsaved_command_counter'] = 0
     State['previous_saved_time'] = time()
     return State
