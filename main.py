@@ -57,9 +57,10 @@ class Task:
                     self.status['priority'] = False
                     self.status['urgent'] = False
         else:
-            if self.period['lastActivation'].month != today.month:
-                if int(self.period['activationDay']) <= today.day or self.period[
-                    'lastActivation'].month + 1 < today.month:
+            last = self.period['lastActivation']
+            months_passed = (today.year - last.year) * 12 + (today.month - last.month)
+            if months_passed > 0:
+                if int(self.period['activationDay']) <= today.day or months_passed > 1:
                     self.period['lastActivation'] = today
                     self.set_status('done', False, propogate=False)
 
@@ -84,6 +85,9 @@ class Task:
         if key == 'done' and val == True:
             self.done_date = date.today()
 
+        if key in ('done', 'irrelevant') and val is True:
+            self.status['agenda'] = False
+
     def set_expension(self, val):
         self.expand = val
         for subTask in self.subTasks:
@@ -100,6 +104,9 @@ class Task:
         return counter
 
     def get_display_params(self, State):
+        if State.get('pinned_task') is self:
+            return self.color, '', True
+
         if State['display_urgent'] is True and self.status['urgent'] is False:
             visible = False
         elif State['display_priority'] is True and self.status['priority'] is False:
@@ -128,7 +135,7 @@ class Task:
     def build_appendix(self, State, msg_length=50):
         status = self.count_status()
 
-        task_status = '' if len(self.subTasks) == 0 else f'({status["done"]}/{len(self.subTasks)})'
+        task_status = '' if len(self.subTasks) == 0 else f'({len(self.subTasks) - status["done"]}/{len(self.subTasks)})'
         expand_sign = '' if len(self.subTasks) == 0 else " ..." if self.expand is False else ':'
         dates = str(self.creation_date) + '-' + str(self.done_date)
 
@@ -139,7 +146,7 @@ class Task:
         for key, val in status.items():
             bg, fg = color_scheme(key)
             expanded_task_status += bg + fg + str(val) + ','
-        expanded_task_status[:-1]
+        expanded_task_status = expanded_task_status[:-1]
         expanded_task_status += RESET_ALL_CODE + f' /{len(self.subTasks)})'
         offset = '{:>' + str(max([165 - msg_length, msg_length + 1])) + '}'
         verbose = offset.format(f'{dates}, {expanded_task_status}') if State['verbose'] else ''
@@ -152,9 +159,9 @@ class Task:
 
         if visible is True:
             start = '' if start is None else str(start)
-            msg = f'{start} {self.name}'
-            end = self.build_appendix(State, len(msg))
-            print(f"{bg_color}{fg_color}{msg} {end}")
+            end = self.build_appendix(State, len(start) + 1 + len(self.name))
+            start_color = fg_color.replace(UNDERLINE_CODE, '') if UNDERLINE_CODE in fg_color else fg_color
+            print(f"{bg_color}{start_color}{start} {fg_color}{self.name} {end}")
 
         if self.expand is True:
             for i, subTask in enumerate(self.subTasks):
@@ -210,6 +217,7 @@ class Command:
         return ' '.join(cmd)
 
     def execute(self, State, Tasks):
+        State['pinned_task'] = None
         State['unsaved_command_counter'] += 1
 
         if len(self.task_location) == 0:
@@ -316,6 +324,7 @@ def execute_command_specific(cmd, State, Tasks):
         State['display_priority'] = False
         State['display_urgent'] = False
         State['display_agenda'] = False
+        State['pinned_task'] = task
 
         sys_print(task.status)
         sys_print(task.period)
@@ -348,8 +357,8 @@ def execute_command_specific(cmd, State, Tasks):
 
     elif all(chr == 'w' for chr in cmd.opcode) or all(chr == 's' for chr in cmd.opcode):
         direction = 1 if cmd.opcode.startswith('s') else -1
-        dst = cmd.task_location[-1] + direction * len(cmd.opcode)
         parent_task_list = Tasks if len(cmd.task_location) == 1 else get_task(Tasks, cmd.task_location[:-1]).subTasks
+        dst = (cmd.task_location[-1] + direction * len(cmd.opcode)) % len(parent_task_list)
         parent_task_list.insert(dst, parent_task_list.pop(parent_task_list.index(task)))
 
     elif cmd.opcode == 'rm' or cmd.opcode == 'del':
@@ -366,7 +375,7 @@ def execute_command_specific(cmd, State, Tasks):
         task.set_color(color)
 
     elif cmd.opcode == 'const':
-        State['constant_parent_task'] = cmd.data
+        State['constant_parent_task'] = cmd.task_location
 
     else:
         if not cmd.opcode in opcode_dict:
@@ -387,7 +396,7 @@ def sparse_data_saver(State, Tasks):
         return
 
 def init_state():
-    State = initial_state
+    State = initial_state.copy()
     State['unsaved_command_counter'] = 0
     State['previous_saved_time'] = time()
     return State
@@ -398,6 +407,8 @@ def main():
     _, Tasks = load_data()
     State = init_state()
     update_tasks(Tasks)
+    for task in Tasks:
+        task.set_expension(False)
     display_tasks(State, Tasks)
 
     while True:
@@ -412,9 +423,9 @@ def main():
             sys_print('good bye.')
             sys.exit()
 
-        except:
+        except Exception as e:
             State["display_urgent"] = False
-            sys_print('error.')
+            sys_print(f'error: {e}')
 
 
 if __name__ == '__main__':
