@@ -202,7 +202,7 @@ class Task:
 
         if self.expand is True:
             for i, subTask in enumerate(self.subTasks):
-                subTask.print(State, start=start + str(i) + '.')
+                subTask.print(State, start='  ' + start + str(i) + '.')
 
 
 class Command:
@@ -251,7 +251,7 @@ class Command:
 
     def execute(self, State, Tasks):
         State['pinned_task'] = None
-        State['unsaved_command_counter'] += 1
+        State['detail_info'] = []
 
         if self.opcode not in ('z', 'y'):
             State['undo_stack'].append(copy.deepcopy(Tasks))
@@ -274,7 +274,7 @@ class Command:
 def collect_agenda_tasks(Tasks):
     result = []
     def recurse(task):
-        if task.status['agenda']:
+        if task.status['agenda'] and not task.status['done'] and not task.status['irrelevant']:
             result.append(task)
         for sub in task.subTasks:
             recurse(sub)
@@ -291,6 +291,18 @@ def sync_agenda_order(State, Tasks):
             State['agenda_order'].append(t)
 
 
+def find_task_path(task, Tasks):
+    def search(target, task_list, path):
+        for i, t in enumerate(task_list):
+            if t is target:
+                return path + [i]
+            result = search(target, t.subTasks, path + [i])
+            if result is not None:
+                return result
+        return None
+    return search(task, Tasks, [])
+
+
 def _erase_lines(n):
     out = sys.__stdout__ if sys.__stdout__ is not None else sys.stdout
     out.write(f'\033[{n}A\033[J')
@@ -304,17 +316,33 @@ def display_tasks(State, Tasks):
             _erase_lines(lines)
         State['lines_since_last_erase'] = 0
 
+        if State['display_agenda']:
+            sys_print('[ agenda ]')
+        elif State['display_urgent']:
+            sys_print('[ urgent ]')
+        elif State['display_priority']:
+            sys_print('[ priority ]')
+        elif State.get('pinned_task') is not None:
+            sys_print(f'[ {State["pinned_task"].name} ]')
+        for line in State.get('detail_info', []):
+            sys_print(line)
         if State['unsaved_command_counter'] > 0:
             sys_print(f'* unsaved changes ({State["unsaved_command_counter"]})')
         sys_print(CROSS_SECTION_LINE)
         if State['display_agenda']:
             sync_agenda_order(State, Tasks)
-            for i, task in enumerate(State['agenda_order']):
+            for task in State['agenda_order']:
                 fg_color, bg_color, _ = task.get_display_params(State)
-                start_str = f' {i}.'
+                path = find_task_path(task, Tasks)
+                start_str = ' ' + '.'.join(str(i) for i in path) + '.' if path else ' ?.'
                 end = task.build_appendix(State, len(start_str) + 1 + len(task.name))
                 start_color = fg_color.replace(UNDERLINE_CODE, '') if UNDERLINE_CODE in fg_color else fg_color
                 print(f"{bg_color}{start_color}{start_str} {fg_color}{task.name} {end}")
+        elif State.get('pinned_task') is not None:
+            task = State['pinned_task']
+            path = find_task_path(task, Tasks)
+            start_str = ' ' + '.'.join(str(i) for i in path) + '.' if path else ' ?.'
+            task.print(State, start=start_str)
         else:
             for i, task in enumerate(Tasks):
                 task.print(State, start=' ' + str(i) + '.')
@@ -357,11 +385,13 @@ def execute_command_general(cmd, State, Tasks):
         if State['undo_stack']:
             State['redo_stack'].append(copy.deepcopy(Tasks))
             Tasks[:] = State['undo_stack'].pop()
+            State['unsaved_command_counter'] += 1
 
     elif cmd.opcode == 'y':
         if State['redo_stack']:
             State['undo_stack'].append(copy.deepcopy(Tasks))
             Tasks[:] = State['redo_stack'].pop()
+            State['unsaved_command_counter'] += 1
 
     elif cmd.opcode == 'state':
         print_state(State)
@@ -385,8 +415,16 @@ def execute_command_general(cmd, State, Tasks):
         save_data_wrapper(State, Tasks)
 
     elif cmd.opcode == 'e':
-        State['display_urgent'], State['display_priority'], State['display_agenda'] = False, False, False
-        State['expand_all'] = not State['expand_all']
+        in_filtered_view = (State['display_urgent'] or State['display_priority']
+                            or State['display_agenda'] or State.get('pinned_task') is not None)
+        State['display_urgent'] = False
+        State['display_priority'] = False
+        State['display_agenda'] = False
+        State['pinned_task'] = None
+        if in_filtered_view:
+            State['expand_all'] = False
+        else:
+            State['expand_all'] = not State['expand_all']
         for task in Tasks:
             task.set_expension(State['expand_all'])
 
@@ -405,13 +443,11 @@ def execute_command_general(cmd, State, Tasks):
     else:
         new_task = ' '.join([cmd.opcode, cmd.data])
         Tasks.append(Task(new_task))
+        State['unsaved_command_counter'] += 1
 
 
 def execute_command_specific(cmd, State, Tasks):
-    if State['display_agenda']:
-        task = State['agenda_order'][cmd.task_location[0]]
-    else:
-        task = get_task(Tasks, cmd.task_location)
+    task = get_task(Tasks, cmd.task_location)
 
     if cmd.opcode == None:
         State['expand_all'] = False
@@ -419,9 +455,8 @@ def execute_command_specific(cmd, State, Tasks):
         State['display_urgent'] = False
         State['display_agenda'] = False
         State['pinned_task'] = task
+        State['detail_info'] = [str(task.status), str(task.period)]
 
-        sys_print(task.status)
-        sys_print(task.period)
         for Task in Tasks:
             Task.set_expension(False)
         task.set_expension(True)
@@ -434,10 +469,12 @@ def execute_command_specific(cmd, State, Tasks):
 
         if cmd.opcode == 'u':
             task.status['priority'] = True if task.status['urgent'] is True else task.status['priority']
+        State['unsaved_command_counter'] += 1
 
     elif cmd.opcode == 'dd':
         current_val = task.status['done']
         task.set_status('done', not current_val, propogate=True)
+        State['unsaved_command_counter'] += 1
 
     elif cmd.opcode == 'e':
         State['display_urgent'], State['display_priority'] = False, False
@@ -445,20 +482,25 @@ def execute_command_specific(cmd, State, Tasks):
 
     elif cmd.opcode == 'r':
         task.name = cmd.data
+        State['unsaved_command_counter'] += 1
 
     elif cmd.opcode == 'p':
         task.period = {'activationDay': cmd.data, 'lastActivation': date.today()}
+        State['unsaved_command_counter'] += 1
 
     elif all(chr == 'w' for chr in cmd.opcode) or all(chr == 's' for chr in cmd.opcode):
         direction = 1 if cmd.opcode.startswith('s') else -1
         if State['display_agenda']:
-            src = cmd.task_location[0]
+            if task not in State['agenda_order']:
+                return
+            src = State['agenda_order'].index(task)
             dst = (src + direction * len(cmd.opcode)) % len(State['agenda_order'])
             State['agenda_order'].insert(dst, State['agenda_order'].pop(src))
         else:
             parent_task_list = Tasks if len(cmd.task_location) == 1 else get_task(Tasks, cmd.task_location[:-1]).subTasks
             dst = (cmd.task_location[-1] + direction * len(cmd.opcode)) % len(parent_task_list)
             parent_task_list.insert(dst, parent_task_list.pop(parent_task_list.index(task)))
+            State['unsaved_command_counter'] += 1
 
     elif cmd.opcode == 'rm' or cmd.opcode == 'del':
         pointer = cmd.task_location[-1]
@@ -467,11 +509,13 @@ def execute_command_specific(cmd, State, Tasks):
         else:
             parent_task = get_task(Tasks, cmd.task_location[:-1])
             del parent_task.subTasks[pointer]
+        State['unsaved_command_counter'] += 1
 
     elif cmd.opcode == 'c':
         color_code = cmd.data if cmd.data in color_dict.keys() else 'w'
         color = color_dict[color_code]
         task.set_color(color)
+        State['unsaved_command_counter'] += 1
 
     elif cmd.opcode == 'const':
         State['constant_parent_task'] = cmd.task_location
@@ -479,6 +523,7 @@ def execute_command_specific(cmd, State, Tasks):
     else:
         if not cmd.opcode in opcode_dict:
             task.add_subTask(' '.join([cmd.opcode, cmd.data]))
+            State['unsaved_command_counter'] += 1
 
 def save_data_wrapper(State, Tasks):
     save_data(State, Tasks)
